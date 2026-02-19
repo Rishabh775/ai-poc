@@ -1,58 +1,20 @@
 # Operational Intelligence Dashboard
 
-An AI-powered system that analyzes operational incidents and produces actionable insights through pattern detection, clustering, and trend analysis.
+AI-powered operational command center that analyzes simulated Jira tickets and converts operational noise into actionable decision insights for product managers.
 
-## Overview
-
-This full-stack prototype demonstrates how AI can transform operational noise into strategic intelligence by:
-
-- Detecting recurring issue patterns across support tickets
-- Identifying trends and anomalies over time
-- Calculating impact scores for prioritization
-- Generating explainable, actionable insights
-- Visualizing operational health metrics
+**AI → Analysis → Prioritization → Action**
 
 ## Architecture
 
-```
-┌─────────────┐          ┌──────────────┐
-│   React     │  ◄─────  │   FastAPI    │
-│  Dashboard  │   REST   │   Backend    │
-└─────────────┘          └──────────────┘
-                                │
-                         ┌──────▼───────┐
-                         │  AI Engine   │
-                         │  - Sentence  │
-                         │    Transformers│
-                         │  - DBSCAN    │
-                         │  - Analytics │
-                         └──────────────┘
-```
-
-## Features
-
-### Backend (Python + FastAPI)
-- Generates 100 realistic demo Jira-style tickets with recurring patterns
-- Uses Sentence Transformers for semantic text embeddings
-- Clusters similar issues using DBSCAN algorithm
-- Detects temporal trends and calculates impact scores
-- Provides REST API for insights and raw data
-
-### Frontend (React + TypeScript)
-- Professional SaaS-style dashboard interface
-- Real-time metrics: incidents, risk score, stability index
-- Interactive charts: trend analysis, severity distribution, workflow breakdown
-- AI-generated cluster summaries with actionable recommendations
-- Executive summary with strategic insights
+- **Backend:** Python FastAPI (`backend/`)
+- **Frontend:** React + Vite + Tailwind CSS (`src/`)
+- **Charts:** Recharts
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.8+
-- Node.js 18+
-- npm or yarn
+No setup required. Start backend, then frontend.
 
-### Backend Setup
+### 1. Backend
 
 ```bash
 cd backend
@@ -60,86 +22,79 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Backend runs on `http://localhost:8000`
+Server runs on **http://localhost:8000**. On startup it:
+- Generates 80–120 Jira-style demo tickets
+- Runs the AI pipeline (embeddings, clustering, impact scoring)
+- Caches insights for instant dashboard load
 
-### Frontend Setup
+### 2. Frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`
+Dashboard runs on **http://localhost:5173**.
 
-## Demo Data Patterns
+## Features
 
-The system simulates realistic operational issues:
+### Backend
 
-1. **Reviewer Assignment Failures** - Load balancing and timeout issues
-2. **Submission Workflow Bugs** - State machine and validation errors
-3. **Dashboard Performance** - Query optimization and memory issues
-4. **Timeout Errors** - Infrastructure and integration problems
-5. **Release Regressions** - Deployment-related bugs
+| Feature | Description |
+|--------|-------------|
+| Demo ticket generator | 80–120 tickets with recurring patterns (reviewer failures, submission bugs, dashboard perf, timeouts, release regressions, infra, backlog spikes) |
+| AI pipeline | sentence-transformers embeddings → DBSCAN clustering → impact scoring (frequency + severity + recurrence) |
+| Actionable insights | `recommended_action`, `priority_level` (P1–P4), `owner_team`, `business_impact`, `urgency_tag`, `risk_score`, `recurrence_signal` |
+| Ownership mapping | submission → Backend Team, review → Platform Team, dashboard → Frontend Team, release → Release Engineering, infra → DevOps |
+| Change tracking | Last 7 days vs previous 7 days: `trend_direction`, `delta_percent`, `stability_index` |
+| Jira draft simulation | `POST /jira-draft/{id}` generates structured draft (summary, priority, impact, examples, recommended action, owner) — no real Jira integration |
 
-## AI Processing Pipeline
+### API Endpoints
 
-1. **Text Embedding**: Converts ticket titles and descriptions into semantic vectors
-2. **Clustering**: Groups similar issues using DBSCAN (density-based clustering)
-3. **Impact Scoring**: Calculates priority based on frequency, severity, and recurrence
-4. **Trend Detection**: Analyzes temporal patterns and week-over-week changes
-5. **Summary Generation**: Creates human-readable insights with context
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/tickets` | Raw demo tickets |
+| GET | `/insights` | AI-processed insights with clusters |
+| GET | `/cluster/{id}` | Single cluster detail |
+| POST | `/jira-draft/{id}` | Generate Jira draft for a cluster |
 
-## API Endpoints
+### Frontend
 
-- `GET /` - Service health check
-- `GET /insights` - AI-processed operational insights
-- `GET /tickets` - Raw demo ticket data
+| Feature | Description |
+|--------|-------------|
+| Top metrics | Total incidents, top issue, risk score, stability index, trend direction |
+| Charts | Incidents over time, cluster distribution, severity breakdown, workflow ownership |
+| Cluster action cards | Priority badge, owner team, impact score, urgency tag, summary, recommended action, example tickets |
+| Priority sort toggle | Sort by frequency, severity, impact, recurrence, priority |
+| Drill-down | Click “Details” to open cluster detail panel (timeline, severity, examples, AI explanation, ownership, priority reasoning) |
+| Jira modal | “Create Jira Issue” opens preview of structured draft |
 
-## Technology Stack
+## Tech Stack
 
-**Backend:**
-- FastAPI
-- Sentence Transformers (all-MiniLM-L6-v2)
-- scikit-learn
-- pandas
-- NumPy
+- **Backend:** FastAPI, sentence-transformers, scikit-learn, pandas, numpy
+- **Frontend:** React, Vite, Tailwind CSS, Recharts, lucide-react
 
-**Frontend:**
-- React 18
-- TypeScript
-- Tailwind CSS
-- Recharts
-- Lucide Icons
-- Axios
+## Project Layout
 
-## Use Cases
-
-This prototype demonstrates enterprise operational intelligence for:
-
-- **DevOps Teams**: Identify recurring infrastructure issues
-- **Support Organizations**: Detect high-impact support patterns
-- **Engineering Leadership**: Track system stability and risk metrics
-- **Product Teams**: Prioritize bug fixes based on impact analysis
-
-## Demo Behavior
-
-On startup:
-1. Backend generates 100 demo tickets with realistic patterns
-2. AI pipeline processes all tickets and identifies clusters
-3. Frontend loads and displays insights immediately
-4. Dashboard shows actionable intelligence within seconds
-
-No manual setup or configuration required.
-
-## Future Enhancements
-
-- Real-time ticket ingestion from Jira/GitHub
-- Custom alert thresholds and notifications
-- Historical trend comparison
-- Root cause analysis with LLMs
-- Automated remediation suggestions
-- Team performance metrics
-
-## License
-
-MIT
+```
+ai-poc/
+├── backend/
+│   ├── main.py           # FastAPI app, endpoints
+│   ├── ai_processor.py   # Embeddings, clustering, insights
+│   ├── ticket_generator.py
+│   └── requirements.txt
+├── src/
+│   ├── App.tsx
+│   ├── services/api.ts
+│   └── components/
+│       ├── MetricCard.tsx
+│       ├── TrendChart.tsx
+│       ├── SeverityChart.tsx
+│       ├── WorkflowChart.tsx
+│       ├── ClusterDistributionChart.tsx
+│       ├── ClusterPanel.tsx
+│       ├── ClusterDetailPanel.tsx
+│       ├── JiraModal.tsx
+│       └── ExecutiveSummary.tsx
+└── README.md
+```

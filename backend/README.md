@@ -18,14 +18,21 @@ Server runs on `http://localhost:8000`
 
 ## Endpoints
 
-- `GET /` - Service status
-- `GET /insights` - AI-processed operational insights
-- `GET /tickets` - Raw demo tickets
+| Method | Path | Description |
+|--------|------|--------------|
+| GET | `/` | Service status |
+| GET | `/tickets` | Raw demo tickets (80-120) |
+| GET | `/insights` | AI-processed insights with clusters and change tracking |
+| GET | `/cluster/{id}` | Single cluster detail for drill-down |
+| POST | `/jira-draft/{id}` | Generate Jira draft (no real integration) |
 
 ## Features
 
-- Generates 100 realistic demo tickets with recurring patterns
-- Uses Sentence Transformers for semantic embeddings
+- Generates 80-120 realistic demo tickets with recurring patterns
+- sentence-transformers for semantic embeddings
 - DBSCAN clustering for issue grouping
-- Trend detection and impact scoring
-- Explainable AI summaries
+- Impact scoring (frequency + severity + recurrence)
+- Actionable insights (recommended_action, priority, owner_team, etc.)
+- Ownership mapping (workflow → team)
+- Change tracking (last 7d vs previous 7d)
+- Jira draft simulation

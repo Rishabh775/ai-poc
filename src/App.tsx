@@ -1,29 +1,58 @@
-import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, TrendingUp, Shield } from 'lucide-react';
-import { api, InsightsResponse } from './services/api';
-import { MetricCard } from './components/MetricCard';
-import { TrendChart } from './components/TrendChart';
-import { SeverityChart } from './components/SeverityChart';
-import { WorkflowChart } from './components/WorkflowChart';
-import { ClusterPanel } from './components/ClusterPanel';
-import { ExecutiveSummary } from './components/ExecutiveSummary';
+import { useEffect, useState } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  TrendingUp,
+  Shield,
+  ChevronDown,
+} from "lucide-react";
+import { api, InsightsResponse, Cluster, JiraDraft } from "./services/api";
+import { MetricCard } from "./components/MetricCard";
+import { TopIssueCard } from "./components/TopIssueCard";
+import { TrendChart } from "./components/TrendChart";
+import { SeverityChart } from "./components/SeverityChart";
+import { WorkflowChart } from "./components/WorkflowChart";
+import { ClusterDistributionChart } from "./components/ClusterDistributionChart";
+import { ClusterPanel } from "./components/ClusterPanel";
+import { ExecutiveSummary } from "./components/ExecutiveSummary";
+import { ClusterDetailPanel } from "./components/ClusterDetailPanel";
+import { JiraModal } from "./components/JiraModal";
+
+type SortOption =
+  | "frequency"
+  | "severity"
+  | "impact"
+  | "recurrence"
+  | "priority";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "frequency", label: "Frequency" },
+  { value: "severity", label: "Severity" },
+  { value: "impact", label: "Impact" },
+  { value: "recurrence", label: "Recurrence" },
+  { value: "priority", label: "Priority" },
+];
 
 function App() {
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
+  const [jiraDraft, setJiraDraft] = useState<JiraDraft["draft"] | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("priority");
 
   useEffect(() => {
     const fetchInsights = async () => {
       try {
         setLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
         const data = await api.getInsights();
         setInsights(data);
         setError(null);
       } catch (err) {
-        console.error('Failed to fetch insights:', err);
-        setError('Failed to load insights. Make sure the backend is running on http://localhost:8000');
+        console.error("Failed to fetch insights:", err);
+        setError(
+          "Failed to load insights. Make sure the backend is running on http://localhost:8000"
+        );
       } finally {
         setLoading(false);
       }
@@ -32,13 +61,29 @@ function App() {
     fetchInsights();
   }, []);
 
+  const handleDetails = (cluster: Cluster) => {
+    setSelectedCluster(cluster);
+  };
+
+  const handleCreateJira = async (cluster: Cluster) => {
+    try {
+      const res = await api.createJiraDraft(cluster.cluster_id);
+      setJiraDraft(res.draft);
+    } catch (err) {
+      console.error("Failed to create Jira draft:", err);
+      alert("Failed to generate Jira draft.");
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg font-medium text-gray-700">Processing operational data...</p>
-          <p className="text-sm text-gray-500 mt-2">AI is analyzing incident patterns</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-zinc-300 border-t-sky-600" />
+          <p className="font-medium text-zinc-700">Processing operational data</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            AI is analyzing incident patterns
+          </p>
         </div>
       </div>
     );
@@ -46,16 +91,20 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
-          <div className="flex items-center space-x-3 mb-4">
-            <AlertTriangle className="w-8 h-8 text-red-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Connection Error</h2>
+      <div className="flex min-h-screen items-center justify-center bg-zinc-100">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-card">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="rounded-lg bg-red-100 p-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-zinc-900">Connection error</h2>
           </div>
-          <p className="text-gray-700 mb-4">{error}</p>
-          <div className="bg-gray-50 rounded p-4">
-            <p className="text-sm font-medium text-gray-900 mb-2">To start the backend:</p>
-            <code className="text-xs bg-gray-900 text-white p-2 rounded block">
+          <p className="mb-4 text-zinc-600">{error}</p>
+          <div className="rounded-lg bg-zinc-50 p-4">
+            <p className="mb-2 text-sm font-medium text-zinc-900">
+              To start the backend:
+            </p>
+            <code className="block rounded bg-zinc-900 px-2 py-1.5 text-xs text-white">
               cd backend && python main.py
             </code>
           </div>
@@ -64,38 +113,45 @@ function App() {
     );
   }
 
-  if (!insights) {
-    return null;
-  }
+  if (!insights) return null;
 
-  const severityData = insights.clusters.reduce((acc, cluster) => {
-    Object.entries(cluster.severity_distribution).forEach(([severity, count]) => {
-      acc[severity] = (acc[severity] || 0) + count;
-    });
-    return acc;
-  }, {} as Record<string, number>);
+  const { metrics, trends, change_tracking } = insights;
+  const trendDir = change_tracking?.trend_direction ?? "stable";
+
+  const severityData = insights.clusters.reduce(
+    (acc, cluster) => {
+      Object.entries(cluster.severity_distribution || {}).forEach(
+        ([severity, count]) => {
+          acc[severity] = (acc[severity] || 0) + count;
+        }
+      );
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-zinc-100">
+      {/* Header */}
+      <header className="border-b border-zinc-200 bg-zinc-900">
+        <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Activity className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500">
+                <Activity className="h-5 w-5 text-white" strokeWidth={2} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Operational Intelligence Dashboard
+                <h1 className="text-lg font-bold text-white">
+                  Operational Intelligence
                 </h1>
-                <p className="text-sm text-gray-600">
-                  AI-Powered Incident Analysis & Pattern Detection
+                <p className="text-sm text-zinc-400">
+                  Incident analysis → prioritization → action
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Last Updated</p>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-xs text-zinc-500">Last updated</p>
+              <p className="text-sm font-medium text-white">
                 {new Date().toLocaleString()}
               </p>
             </div>
@@ -103,60 +159,131 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <MetricCard
-            title="Total Incidents"
-            value={insights.metrics.total_incidents}
-            icon={Activity}
-            trend={`${insights.trends.recent_7d_count} in last 7 days`}
-            iconColor="text-blue-600"
-          />
-          <MetricCard
-            title="Top Recurring Issue"
-            value={insights.metrics.cluster_count}
-            icon={TrendingUp}
-            trend="clusters detected"
-            iconColor="text-orange-600"
-          />
-          <MetricCard
-            title="Risk Score"
-            value={insights.metrics.risk_score}
-            icon={AlertTriangle}
-            trend={`${insights.metrics.critical_incidents} critical incidents`}
-            iconColor="text-red-600"
-          />
-          <MetricCard
-            title="Stability Index"
-            value={insights.metrics.stability_index}
-            icon={Shield}
-            trend={insights.trends.trend_direction}
-            iconColor="text-green-600"
-          />
+      <main className="mx-auto max-w-7xl px-6 py-8">
+        {/* Hero + Metrics */}
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <div className="lg:col-span-1">
+            <MetricCard
+              title="Risk score"
+              value={metrics.risk_score}
+              icon={AlertTriangle}
+              trend={`${metrics.critical_incidents} critical · ${metrics.high_priority_incidents} high`}
+              hero
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4 lg:col-span-3 lg:grid-cols-4">
+            <MetricCard
+              title="Total incidents"
+              value={metrics.total_incidents}
+              icon={Activity}
+              trend={`${trends.recent_7d_count} in last 7d`}
+              iconColor="text-sky-600"
+            />
+            <MetricCard
+              title="Stability"
+              value={change_tracking?.stability_index ?? metrics.stability_index}
+              icon={Shield}
+              trend={trendDir}
+              iconColor="text-emerald-600"
+            />
+            <MetricCard
+              title="Trend"
+              value={`${(change_tracking?.delta_percent ?? 0) > 0 ? "+" : ""}${change_tracking?.delta_percent ?? 0}%`}
+              icon={TrendingUp}
+              trend={`vs prev 7d · ${trendDir}`}
+              iconColor={
+                trendDir === "increasing"
+                  ? "text-red-600"
+                  : trendDir === "decreasing"
+                  ? "text-emerald-600"
+                  : "text-zinc-500"
+              }
+            />
+            <MetricCard
+              title="Clusters"
+              value={metrics.cluster_count}
+              icon={Activity}
+              trend="patterns detected"
+              iconColor="text-violet-600"
+            />
+          </div>
         </div>
 
+        {/* Top Issue */}
         <div className="mb-8">
-          <ExecutiveSummary metrics={insights.metrics} trends={insights.trends} />
+          <TopIssueCard
+            summary={
+              metrics.top_issue ||
+              metrics.top_recurring_issue ||
+              "No recurring patterns detected"
+            }
+            criticalCount={metrics.critical_incidents}
+            highCount={metrics.high_priority_incidents}
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <TrendChart data={insights.trends.daily_incidents} />
-          <WorkflowChart data={insights.trends.workflow_distribution} />
-        </div>
-
+        {/* Executive Summary */}
         <div className="mb-8">
+          <ExecutiveSummary
+            metrics={metrics}
+            trends={trends}
+            changeTracking={change_tracking}
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <TrendChart data={trends.daily_incidents} />
+          <WorkflowChart data={trends.workflow_distribution} />
+        </div>
+
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <SeverityChart data={severityData} />
+          <ClusterDistributionChart clusters={insights.clusters} />
         </div>
 
-        <ClusterPanel clusters={insights.clusters} />
+        {/* Clusters */}
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            Issue clusters
+          </h2>
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="w-full appearance-none rounded-lg border border-zinc-300 bg-white py-2 pl-4 pr-10 text-sm font-medium text-zinc-700 shadow-card focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 sm:w-auto"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  Sort by {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
+          </div>
+        </div>
+
+        <ClusterPanel
+          clusters={insights.clusters}
+          sortBy={sortBy}
+          onDetails={handleDetails}
+          onCreateJira={handleCreateJira}
+        />
       </main>
 
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <p className="text-center text-sm text-gray-500">
-            Operational Intelligence Platform - Powered by AI Pattern Detection
-          </p>
-        </div>
+      {selectedCluster && (
+        <ClusterDetailPanel
+          cluster={selectedCluster}
+          onClose={() => setSelectedCluster(null)}
+        />
+      )}
+
+      <JiraModal draft={jiraDraft} onClose={() => setJiraDraft(null)} />
+
+      <footer className="mt-12 border-t border-zinc-200 bg-white py-6">
+        <p className="text-center text-sm text-zinc-500">
+          Operational Intelligence — AI analysis → prioritization → action
+        </p>
       </footer>
     </div>
   );

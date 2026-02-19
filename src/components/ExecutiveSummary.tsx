@@ -1,69 +1,72 @@
-import { Lightbulb, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { Metrics, Trends } from '../services/api';
+import { Lightbulb, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Metrics, Trends, ChangeTracking } from "../services/api";
 
 interface ExecutiveSummaryProps {
   metrics: Metrics;
   trends: Trends;
+  changeTracking?: ChangeTracking;
 }
 
-export function ExecutiveSummary({ metrics, trends }: ExecutiveSummaryProps) {
-  const getTrendIcon = () => {
-    if (trends.trend_direction === 'increasing') {
-      return <TrendingUp className="w-5 h-5 text-red-600" />;
-    } else if (trends.trend_direction === 'decreasing') {
-      return <TrendingDown className="w-5 h-5 text-green-600" />;
-    }
-    return <Minus className="w-5 h-5 text-gray-600" />;
+export function ExecutiveSummary({
+  metrics,
+  trends,
+  changeTracking,
+}: ExecutiveSummaryProps) {
+  const trendDir = changeTracking?.trend_direction ?? trends.trend_direction;
+
+  const TrendIcon = () => {
+    if (trendDir === "increasing")
+      return <TrendingUp className="h-4 w-4 text-red-600" />;
+    if (trendDir === "decreasing")
+      return <TrendingDown className="h-4 w-4 text-emerald-600" />;
+    return <Minus className="h-4 w-4 text-zinc-500" />;
   };
 
-  const getTrendColor = () => {
-    if (trends.trend_direction === 'increasing') return 'text-red-600';
-    if (trends.trend_direction === 'decreasing') return 'text-green-600';
-    return 'text-gray-600';
-  };
+  const trendColor =
+    trendDir === "increasing"
+      ? "text-red-600"
+      : trendDir === "decreasing"
+      ? "text-emerald-600"
+      : "text-zinc-600";
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-6">
-      <div className="flex items-start space-x-4">
-        <div className="bg-blue-600 p-3 rounded-lg">
-          <Lightbulb className="w-6 h-6 text-white" />
+    <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-card">
+      <div className="flex items-start gap-4">
+        <div className="rounded-lg bg-sky-100 p-2.5">
+          <Lightbulb className="h-5 w-5 text-sky-600" strokeWidth={2} />
         </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Executive Summary
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold text-zinc-900">
+            Executive summary
           </h3>
-          <div className="space-y-2 text-sm text-gray-700">
-            <p>
-              <span className="font-semibold">System Status:</span> Analyzed {metrics.total_incidents} incidents
-              across {metrics.cluster_count} recurring patterns over the past 90 days.
-            </p>
-            <p>
-              <span className="font-semibold">Primary Concern:</span> {metrics.top_recurring_issue}
-            </p>
-            <p className="flex items-center space-x-2">
-              <span className="font-semibold">Trend:</span>
-              <span className="flex items-center space-x-1">
-                {getTrendIcon()}
-                <span className={getTrendColor()}>
-                  Incidents are {trends.trend_direction} ({trends.recent_7d_count} in last 7 days vs{' '}
-                  {trends.previous_7d_count} previous)
-                </span>
-              </span>
-            </p>
-            <p>
-              <span className="font-semibold">Risk Assessment:</span> {metrics.critical_incidents} critical
-              and {metrics.high_priority_incidents} high-priority incidents require immediate attention.
-            </p>
-            <div className="mt-4 pt-4 border-t border-blue-200">
-              <p className="font-semibold text-gray-900 mb-1">Recommended Actions:</p>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                <li>Prioritize resolution of top 3 recurring clusters</li>
-                <li>Investigate root cause of {trends.trend_direction === 'increasing' ? 'incident spike' : 'primary workflow issues'}</li>
-                <li>Deploy automated monitoring for high-impact patterns</li>
-                <li>Review deployment processes for regression prevention</li>
-              </ul>
-            </div>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+            {metrics.total_incidents} incidents across {metrics.cluster_count}{" "}
+            recurring patterns in the past 90 days.{" "}
+            <span className="font-medium text-zinc-800">
+              {metrics.critical_incidents} critical
+            </span>{" "}
+            and{" "}
+            <span className="font-medium text-zinc-800">
+              {metrics.high_priority_incidents} high
+            </span>{" "}
+            require attention.
+          </p>
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            <TrendIcon />
+            <span className={trendColor}>
+              Incidents {trendDir} — {trends.recent_7d_count} last 7d vs{" "}
+              {trends.previous_7d_count} prior
+              {changeTracking && ` (Δ ${changeTracking.delta_percent}%)`}
+            </span>
           </div>
+          <ul className="mt-4 space-y-1 border-t border-zinc-100 pt-4 text-sm text-zinc-600">
+            <li>• Prioritize top 3 recurring clusters</li>
+            <li>
+              • Investigate root cause of{" "}
+              {trendDir === "increasing" ? "incident spike" : "primary workflow"}
+            </li>
+            <li>• Deploy monitoring for high-impact patterns</li>
+          </ul>
         </div>
       </div>
     </div>
