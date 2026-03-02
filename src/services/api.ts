@@ -9,6 +9,7 @@ export interface Ticket {
   timestamp: string;
   workflow_type: string;
   severity: string;
+  category?: string;
 }
 
 export interface Cluster {
@@ -33,6 +34,23 @@ export interface Cluster {
   urgency_tag?: string;
   risk_score?: number;
   recurrence_signal?: string;
+  top_keywords?: string[];
+  representative_ticket?: {
+    id: string;
+    title: string;
+    severity: string;
+    timestamp: string;
+  };
+  semantic_cohesion_score?: number;
+  cluster_confidence_score?: number;
+  confidence_label?: "high" | "medium" | "low";
+}
+
+export interface ClusterChange {
+  cluster_id: number;
+  previous_7d_count: number;
+  recent_7d_count: number;
+  trend: "new" | "increasing" | "decreasing" | "resolved" | "stable";
 }
 
 export interface ChangeTracking {
@@ -41,6 +59,7 @@ export interface ChangeTracking {
   new_clusters: number;
   resolved_clusters: number;
   stability_index: number;
+  cluster_changes: ClusterChange[];
 }
 
 export interface Metrics {
@@ -53,6 +72,7 @@ export interface Metrics {
   critical_incidents: number;
   high_priority_incidents: number;
   cluster_count: number;
+  average_cluster_confidence: number;
 }
 
 export interface Trends {
@@ -66,6 +86,14 @@ export interface Trends {
   trend_direction: string;
   recent_7d_count: number;
   previous_7d_count: number;
+}
+
+export interface Config {
+  similarity_threshold: number;
+  dbscan_eps: number;
+  min_samples: number;
+  severity_weights: Record<string, number>;
+  workflow_encodings: Record<string, number[]>;
 }
 
 export interface JiraDraft {
@@ -84,8 +112,53 @@ export interface JiraDraft {
     incident_count: number;
     impact_score: number;
     urgency_tag: string;
+    confidence_score?: number;
+    top_keywords?: string[];
   };
   cluster_id: number;
+}
+
+export interface DuplicateCheckRequest {
+  title: string;
+  description?: string;
+  workflow_type?: string;
+  severity?: string;
+  title_only?: boolean;
+}
+
+export interface DuplicateCheckResponse {
+  is_duplicate: boolean;
+  confidence_score: number;
+  matched_cluster_id: number | null;
+  similar_tickets: Array<{
+    id: string;
+    title: string;
+    severity: string;
+    timestamp: string;
+  }>;
+  message: string;
+}
+
+export interface ClusterAssignmentRequest {
+  title: string;
+  description: string;
+  workflow_type: string;
+  severity: string;
+}
+
+export interface CreateTicketRequest {
+  title: string;
+  description: string;
+  workflow_type: string;
+  severity: string;
+  category?: string;
+}
+
+export interface ClusterAssignmentResponse {
+  assigned_cluster_id: number;
+  created_new_cluster: boolean;
+  similarity_score: number;
+  message: string;
 }
 
 export interface InsightsResponse {
@@ -94,6 +167,21 @@ export interface InsightsResponse {
   change_tracking: ChangeTracking;
   metrics: Metrics;
   total_tickets: number;
+  config: Config;
+}
+
+export interface TicketWithCluster extends Ticket {
+  cluster_id: number | null;
+  cluster_workflow: string | null;
+  cluster_priority: string | null;
+  cluster_impact: number | null;
+  cluster_confidence: number | null;
+}
+
+export interface TicketsWithClustersResponse {
+  tickets: TicketWithCluster[];
+  total: number;
+  clusters: Cluster[];
 }
 
 export const api = {
@@ -107,6 +195,11 @@ export const api = {
     return response.data;
   },
 
+  getTicketsWithClusters: async (): Promise<TicketsWithClustersResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/tickets-with-clusters`);
+    return response.data;
+  },
+
   getCluster: async (clusterId: number): Promise<Cluster> => {
     const response = await axios.get(`${API_BASE_URL}/cluster/${clusterId}`);
     return response.data;
@@ -116,6 +209,32 @@ export const api = {
     const response = await axios.post(
       `${API_BASE_URL}/jira-draft/${clusterId}`
     );
+    return response.data;
+  },
+
+  checkDuplicate: async (request: DuplicateCheckRequest): Promise<DuplicateCheckResponse> => {
+    const response = await axios.post(
+      `${API_BASE_URL}/check-duplicate`,
+      request
+    );
+    return response.data;
+  },
+
+  assignCluster: async (request: ClusterAssignmentRequest): Promise<ClusterAssignmentResponse> => {
+    const response = await axios.post(
+      `${API_BASE_URL}/assign-cluster`,
+      request
+    );
+    return response.data;
+  },
+
+  getConfig: async (): Promise<Config> => {
+    const response = await axios.get(`${API_BASE_URL}/config`);
+    return response.data;
+  },
+
+  createTicket: async (request: CreateTicketRequest) => {
+    const response = await axios.post(`${API_BASE_URL}/tickets`, request);
     return response.data;
   },
 };

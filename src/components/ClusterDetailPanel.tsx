@@ -5,6 +5,8 @@ import {
   Target,
   TrendingUp,
   Users,
+  Gauge,
+  Tag,
 } from "lucide-react";
 import { Cluster } from "../services/api";
 
@@ -99,6 +101,28 @@ export function ClusterDetailPanel({ cluster, onClose }: ClusterDetailPanelProps
               </p>
             </div>
           )}
+          
+          {cluster.cluster_confidence_score != null && (
+            <div className="col-span-2 rounded-lg bg-amber-50 p-4 border border-amber-200">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wider text-amber-700">
+                  <Gauge className="mr-1 inline h-3 w-3" />
+                  AI Confidence
+                </p>
+                <span className={`text-lg font-bold ${
+                  cluster.cluster_confidence_score >= 0.7 ? 'text-emerald-600' :
+                  cluster.cluster_confidence_score >= 0.4 ? 'text-amber-600' : 'text-red-600'
+                }`}>
+                  {Math.round(cluster.cluster_confidence_score * 100)}%
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-amber-600">
+                {cluster.cluster_confidence_score >= 0.7 ? 'High confidence - tickets are well grouped' :
+                 cluster.cluster_confidence_score >= 0.4 ? 'Medium confidence - some variation in tickets' :
+                 'Low confidence - tickets may need reclassification'}
+              </p>
+            </div>
+          )}
         </div>
 
         <div>
@@ -165,6 +189,25 @@ export function ClusterDetailPanel({ cluster, onClose }: ClusterDetailPanelProps
             <p className="capitalize text-zinc-700">
               {cluster.recurrence_signal}
             </p>
+          </div>
+        )}
+
+        {cluster.top_keywords && cluster.top_keywords.length > 0 && (
+          <div>
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              <Tag className="h-4 w-4" />
+              Top Keywords
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {cluster.top_keywords.map((keyword, idx) => (
+                <span
+                  key={idx}
+                  className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-medium text-sky-700"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
