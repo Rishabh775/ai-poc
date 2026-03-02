@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { Search, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { api, DuplicateCheckResponse, DuplicateCheckRequest } from "../services/api";
+import { api, DuplicateCheckResponse } from "../services/api";
 
 interface DuplicateCheckPanelProps {
   onClusterClick?: (clusterId: number) => void;
+}
+
+interface TicketSuggestion {
+  id: string;
+  title: string;
+  severity: string;
+  workflow_type: string;
 }
 
 export function DuplicateCheckPanel({ onClusterClick }: DuplicateCheckPanelProps) {
@@ -12,6 +19,27 @@ export function DuplicateCheckPanel({ onClusterClick }: DuplicateCheckPanelProps
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<TicketSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (title.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.searchTickets(title);
+        setSuggestions(response.tickets);
+        setShowSuggestions(true);
+      } catch (err) {
+        // Silent fail
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [title]);
 
   useEffect(() => {
     if (title.length < 3) {
@@ -36,6 +64,12 @@ export function DuplicateCheckPanel({ onClusterClick }: DuplicateCheckPanelProps
 
     return () => clearTimeout(timer);
   }, [title]);
+
+  const handleSelectSuggestion = (ticket: TicketSuggestion) => {
+    setTitle(ticket.title);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,12 +132,38 @@ export function DuplicateCheckPanel({ onClusterClick }: DuplicateCheckPanelProps
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="e.g., Reviewer status not updating"
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm shadow-card focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               />
               {checking && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <Loader2 className="h-4 w-4 animate-spin text-sky-600" />
+                </div>
+              )}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full rounded-lg border border-zinc-200 bg-white shadow-lg">
+                  {suggestions.map((ticket) => (
+                    <button
+                      key={ticket.id}
+                      type="button"
+                      onClick={() => handleSelectSuggestion(ticket)}
+                      className="w-full px-3 py-2 text-left hover:bg-sky-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-zinc-500">{ticket.id}</span>
+                        <span className={`rounded px-1.5 py-0.5 text-xs ${
+                          ticket.severity === "critical" ? "bg-red-100 text-red-700" :
+                          ticket.severity === "high" ? "bg-orange-100 text-orange-700" :
+                          "bg-zinc-100 text-zinc-600"
+                        }`}>
+                          {ticket.severity}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-sm text-zinc-700">{ticket.title}</p>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>

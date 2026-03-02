@@ -200,6 +200,11 @@ export const api = {
     return response.data;
   },
 
+  searchTickets: async (query: string): Promise<{tickets: Array<{id: string, title: string, severity: string, workflow_type: string}>, total: number}> => {
+    const response = await axios.get(`${API_BASE_URL}/tickets/search`, { params: { q: query } });
+    return response.data;
+  },
+
   getCluster: async (clusterId: number): Promise<Cluster> => {
     const response = await axios.get(`${API_BASE_URL}/cluster/${clusterId}`);
     return response.data;

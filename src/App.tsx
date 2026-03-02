@@ -147,8 +147,8 @@ function App() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-100">
-      <header className="border-b border-zinc-200 bg-zinc-900">
+    <div className="flex min-h-screen flex-col bg-zinc-100">
+      <header className="border-b border-zinc-200 bg-zinc-900 shrink-0">
         <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -369,15 +369,21 @@ function App() {
       </main>
 
       {selectedCluster && (
-        <ClusterDetailPanel
-          cluster={selectedCluster}
-          onClose={() => setSelectedCluster(null)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setSelectedCluster(null)}>
+          <div className="absolute inset-0 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <ClusterDetailPanel
+              cluster={selectedCluster}
+              onClose={() => setSelectedCluster(null)}
+            />
+          </div>
+        </div>
       )}
 
-      <JiraModal draft={jiraDraft} onClose={() => setJiraDraft(null)} />
+      {jiraDraft && (
+        <JiraModal draft={jiraDraft} onClose={() => setJiraDraft(null)} />
+      )}
 
-      <footer className="mt-12 border-t border-zinc-200 bg-white py-6">
+      <footer className="mt-auto border-t border-zinc-200 bg-white py-6 shrink-0">
         <p className="text-center text-sm text-zinc-500">
           Operational Intelligence — AI analysis → prioritization → action
         </p>

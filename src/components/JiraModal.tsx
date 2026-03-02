@@ -10,9 +10,9 @@ export function JiraModal({ draft, onClose }: JiraModalProps) {
   if (!draft) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 backdrop-blur-sm">
-      <div className="mx-4 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 backdrop-blur-sm overflow-y-auto">
+      <div className="my-8 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 shrink-0">
           <h2 className="text-lg font-semibold text-zinc-900">
             Jira draft preview
           </h2>

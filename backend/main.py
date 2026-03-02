@@ -111,6 +111,30 @@ async def get_tickets():
     return {"tickets": demo_tickets, "total": len(demo_tickets)}
 
 
+@app.get("/tickets/search")
+async def search_tickets(q: str = ""):
+    """Search tickets by title (for autocomplete)."""
+    if insights_cache is None:
+        raise HTTPException(status_code=503, detail="Insights not yet processed")
+
+    if not q or len(q) < 2:
+        return {"tickets": [], "total": 0}
+
+    q_lower = q.lower()
+    matching = [
+        {
+            "id": t["id"],
+            "title": t["title"],
+            "severity": t["severity"],
+            "workflow_type": t["workflow_type"],
+        }
+        for t in demo_tickets
+        if q_lower in t["title"].lower() or q_lower in t["description"].lower()
+    ][:10]
+
+    return {"tickets": matching, "total": len(matching)}
+
+
 @app.get("/tickets-with-clusters")
 async def get_tickets_with_clusters():
     """Get all tickets with their cluster assignments for debugging/verification."""

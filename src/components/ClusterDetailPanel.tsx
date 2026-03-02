@@ -34,8 +34,8 @@ export function ClusterDetailPanel({ cluster, onClose }: ClusterDetailPanelProps
   const priority = cluster.priority_level || "P3";
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-lg flex-col border-l border-zinc-200 bg-white shadow-xl">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
+    <div className="absolute right-0 top-0 min-h-screen w-full max-w-lg flex-col border-l border-zinc-200 bg-white shadow-xl">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 shrink-0">
         <h2 className="text-lg font-semibold text-zinc-900">
           Cluster #{cluster.cluster_id}
         </h2>
