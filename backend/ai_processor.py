@@ -146,11 +146,11 @@ class OperationalAIProcessor:
         }
 
     def _cluster_issues_hybrid(self) -> List[Dict]:
-        """Cluster using hybrid vectors (semantic + metadata)."""
+        """Cluster using semantic embeddings (text only)."""
         clustering = DBSCAN(
             eps=config.DBSCAN_EPS, min_samples=config.MIN_SAMPLES, metric="cosine"
         )
-        labels = clustering.fit_predict(self.hybrid_embeddings)
+        labels = clustering.fit_predict(self.embeddings)
         self.tickets_df["cluster"] = labels
 
         clusters = []
@@ -174,6 +174,12 @@ class OperationalAIProcessor:
             for t in example_tickets:
                 t["timestamp"] = t["timestamp"].isoformat()
 
+            all_tickets = cluster_tickets[
+                ["id", "title", "severity", "timestamp"]
+            ].to_dict("records")
+            for t in all_tickets:
+                t["timestamp"] = t["timestamp"].isoformat()
+
             summary = self._generate_cluster_summary(cluster_tickets)
             workflow = (
                 cluster_tickets["workflow_type"].mode()[0]
@@ -192,6 +198,7 @@ class OperationalAIProcessor:
                     "severity_distribution": severity_counts,
                     "workflow_type": workflow,
                     "example_tickets": example_tickets,
+                    "all_tickets": all_tickets,
                     "summary": summary,
                     "first_seen": cluster_tickets["timestamp"].min().isoformat(),
                     "last_seen": cluster_tickets["timestamp"].max().isoformat(),

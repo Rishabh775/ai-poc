@@ -24,6 +24,12 @@ export interface Cluster {
     severity: string;
     timestamp: string;
   }>;
+  all_tickets: Array<{
+    id: string;
+    title: string;
+    severity: string;
+    timestamp: string;
+  }>;
   summary: string;
   first_seen: string;
   last_seen: string;

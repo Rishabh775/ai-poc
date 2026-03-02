@@ -214,10 +214,10 @@ export function ClusterDetailPanel({ cluster, onClose }: ClusterDetailPanelProps
         <div>
           <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
             <Users className="h-4 w-4" />
-            Example tickets
+            All tickets ({cluster.all_tickets.length})
           </h3>
           <div className="space-y-2">
-            {cluster.example_tickets.map((ticket) => (
+            {cluster.all_tickets.map((ticket) => (
               <div
                 key={ticket.id}
                 className="flex items-start justify-between gap-3 rounded-lg bg-zinc-50 p-3"

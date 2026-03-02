@@ -28,7 +28,7 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
   const [newTicket, setNewTicket] = useState({
     title: "",
     description: "",
-    workflow_type: "review",
+    workflow_type: "",
     severity: "medium",
   });
 
@@ -226,6 +226,7 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
                   onChange={(e) => setNewTicket({ ...newTicket, workflow_type: e.target.value })}
                   className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
                 >
+                  <option value="">Select workflow (optional)</option>
                   {WORKFLOW_TYPES.map((w) => (
                     <option key={w} value={w}>
                       {w.charAt(0).toUpperCase() + w.slice(1)}
@@ -336,9 +337,11 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
                   <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${getSeverityColor(ticket.severity)}`}>
                     {ticket.severity}
                   </span>
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                    {ticket.workflow_type}
-                  </span>
+                  {ticket.workflow_type && (
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                      {ticket.workflow_type}
+                    </span>
+                  )}
                   {ticket.category && (
                     <span className="rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-xs font-medium text-sky-700">
                       {ticket.category}

@@ -17,6 +17,7 @@ SEVERITY_WEIGHTS: Dict[str, float] = {
 }
 
 WORKFLOW_ENCODINGS: Dict[str, list] = {
+    "": [0.0, 0.0, 0.0, 0.0, 0.0],
     "submission": [1.0, 0.0, 0.0, 0.0, 0.0],
     "review": [0.0, 1.0, 0.0, 0.0, 0.0],
     "dashboard": [0.0, 0.0, 1.0, 0.0, 0.0],
@@ -25,6 +26,7 @@ WORKFLOW_ENCODINGS: Dict[str, list] = {
 }
 
 WORKFLOW_TO_TEAM: Dict[str, str] = {
+    "": "Unassigned",
     "submission": "Backend Team",
     "review": "Platform Team",
     "dashboard": "Frontend Team",

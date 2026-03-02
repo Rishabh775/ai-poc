@@ -71,7 +71,7 @@ insights_cache: Dict[str, Any] | None = None
 
 @app.on_event("startup")
 async def startup_event():
-    """Generate tickets and run AI pipeline on startup."""
+    """Run AI pipeline on startup."""
     global insights_cache, demo_tickets
     print("=" * 60)
     print("Operational Intelligence - AI Triage Engine")
@@ -81,17 +81,18 @@ async def startup_event():
     print(f"  DBSCAN EPS: {config.DBSCAN_EPS}")
     print(f"  Min Samples: {config.MIN_SAMPLES}")
     print("-" * 60)
-    print("Generating demo tickets...")
-    demo_tickets = ticket_generator.generate_tickets()
-    print(f"Generated {len(demo_tickets)} tickets")
-    print("Processing tickets with AI (hybrid clustering)...")
-    insights_cache = ai_processor.process_tickets(demo_tickets)
-    print(
-        f"Processed into {len(insights_cache['clusters'])} clusters. "
-        f"Trend: {insights_cache['change_tracking']['trend_direction']}"
-    )
-    avg_conf = insights_cache["metrics"].get("average_cluster_confidence", 0)
-    print(f"Average cluster confidence: {avg_conf:.1%}")
+    print(f"Starting with {len(demo_tickets)} tickets")
+    if demo_tickets:
+        print("Processing tickets with AI clustering...")
+        insights_cache = ai_processor.process_tickets(demo_tickets)
+        print(
+            f"Processed into {len(insights_cache['clusters'])} clusters. "
+            f"Trend: {insights_cache['change_tracking']['trend_direction']}"
+        )
+        avg_conf = insights_cache["metrics"].get("average_cluster_confidence", 0)
+        print(f"Average cluster confidence: {avg_conf:.1%}")
+    else:
+        print("No tickets to process. Add tickets via API.")
     print("=" * 60)
 
 
