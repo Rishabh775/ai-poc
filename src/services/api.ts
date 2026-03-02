@@ -292,4 +292,11 @@ export const api = {
     });
     return response.data;
   },
+
+  unassignTicket: async (ticketId: string) => {
+    const response = await axios.post(`${API_BASE_URL}/clusters/unassign`, {
+      ticket_id: ticketId,
+    });
+    return response.data;
+  },
 };

@@ -440,12 +440,33 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
                         </span>
                       )}
                       {ticket.cluster_id !== null && (
-                        <button
-                          onClick={() => onClusterClick?.(ticket.cluster_id!)}
-                          className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80 ${getClusterBadge(ticket.cluster_id)}`}
-                        >
-                          Cluster #{ticket.cluster_id}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onClusterClick?.(ticket.cluster_id!)}
+                            className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80 ${getClusterBadge(ticket.cluster_id)}`}
+                          >
+                            Cluster #{ticket.cluster_id}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setAssigning(true);
+                              try {
+                                await api.unassignTicket(ticket.id);
+                                await fetchData();
+                                onClusterAssigned?.();
+                              } catch (err) {
+                                console.error(err);
+                              } finally {
+                                setAssigning(false);
+                              }
+                            }}
+                            disabled={assigning}
+                            className="flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            title="Remove from cluster"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       )}
                       {ticket.cluster_id === null && (
                         <div className="relative">

@@ -74,6 +74,10 @@ class BulkAssignRequest(BaseModel):
     cluster_id: int
 
 
+class UnassignTicketRequest(BaseModel):
+    ticket_id: str
+
+
 class CreateTicketRequest(BaseModel):
     title: str
     description: str
@@ -358,6 +362,24 @@ async def bulk_assign_tickets(request: BulkAssignRequest):
 async def get_config():
     """Get current system configuration."""
     return config.get_config()
+
+
+@app.post("/clusters/unassign")
+async def unassign_ticket(request: UnassignTicketRequest):
+    """Remove a ticket from its cluster (mark as unclustered)."""
+    global demo_tickets, insights_cache
+
+    if insights_cache is None:
+        raise HTTPException(status_code=503, detail="Insights not yet processed")
+
+    for ticket in demo_tickets:
+        if ticket["id"] == request.ticket_id:
+            ticket["cluster_id"] = None
+            break
+
+    insights_cache = ai_processor.process_tickets(demo_tickets)
+
+    return {"message": f"Ticket {request.ticket_id} unassigned from cluster"}
 
 
 @app.post("/tickets")
