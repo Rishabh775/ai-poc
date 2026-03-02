@@ -14,6 +14,7 @@ export interface Ticket {
 
 export interface Cluster {
   cluster_id: number;
+  custom_name?: string;
   incident_count: number;
   impact_score: number;
   severity_distribution: Record<string, number>;
@@ -169,6 +170,12 @@ export interface ClusterAssignmentResponse {
 
 export interface InsightsResponse {
   clusters: Cluster[];
+  unclustered_tickets: Array<{
+    id: string;
+    title: string;
+    severity: string;
+    timestamp: string;
+  }>;
   trends: Trends;
   change_tracking: ChangeTracking;
   metrics: Metrics;
@@ -239,6 +246,22 @@ export const api = {
     return response.data;
   },
 
+  manuallyAssignCluster: async (ticketId: string, clusterId: number) => {
+    const response = await axios.post(`${API_BASE_URL}/clusters/assign`, {
+      ticket_id: ticketId,
+      cluster_id: clusterId,
+    });
+    return response.data;
+  },
+
+  mergeClusters: async (sourceClusterId: number, targetClusterId: number) => {
+    const response = await axios.post(`${API_BASE_URL}/clusters/merge`, {
+      source_cluster_id: sourceClusterId,
+      target_cluster_id: targetClusterId,
+    });
+    return response.data;
+  },
+
   getConfig: async (): Promise<Config> => {
     const response = await axios.get(`${API_BASE_URL}/config`);
     return response.data;
@@ -246,6 +269,27 @@ export const api = {
 
   createTicket: async (request: CreateTicketRequest) => {
     const response = await axios.post(`${API_BASE_URL}/tickets`, request);
+    return response.data;
+  },
+
+  updateClusterName: async (clusterId: number, name: string) => {
+    const response = await axios.post(`${API_BASE_URL}/clusters/name`, {
+      cluster_id: clusterId,
+      name,
+    });
+    return response.data;
+  },
+
+  getClusterNames: async (): Promise<Record<number, string>> => {
+    const response = await axios.get(`${API_BASE_URL}/clusters/names`);
+    return response.data;
+  },
+
+  bulkAssignTickets: async (ticketIds: string[], clusterId: number) => {
+    const response = await axios.post(`${API_BASE_URL}/clusters/bulk-assign`, {
+      ticket_ids: ticketIds,
+      cluster_id: clusterId,
+    });
     return response.data;
   },
 };

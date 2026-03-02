@@ -54,6 +54,26 @@ class ClusterAssignmentRequest(BaseModel):
     severity: str
 
 
+class ManualClusterAssignmentRequest(BaseModel):
+    ticket_id: str
+    cluster_id: int
+
+
+class ClusterMergeRequest(BaseModel):
+    source_cluster_id: int
+    target_cluster_id: int
+
+
+class ClusterNameRequest(BaseModel):
+    cluster_id: int
+    name: str
+
+
+class BulkAssignRequest(BaseModel):
+    ticket_ids: List[str]
+    cluster_id: int
+
+
 class CreateTicketRequest(BaseModel):
     title: str
     description: str
@@ -67,6 +87,7 @@ demo_tickets = ticket_generator.generate_tickets()
 
 ai_processor = OperationalAIProcessor()
 insights_cache: Dict[str, Any] | None = None
+cluster_names: Dict[int, str] = {}
 
 
 @app.on_event("startup")
@@ -167,10 +188,16 @@ async def get_tickets_with_clusters():
             }
         )
 
+    clusters_with_names = []
+    for c in insights_cache["clusters"]:
+        c_copy = c.copy()
+        c_copy["custom_name"] = cluster_names.get(c["cluster_id"])
+        clusters_with_names.append(c_copy)
+
     return {
         "tickets": tickets_with_clusters,
         "total": len(tickets_with_clusters),
-        "clusters": insights_cache["clusters"],
+        "clusters": clusters_with_names,
     }
 
 
@@ -179,7 +206,11 @@ async def get_insights():
     """Get AI-processed operational insights with clusters and change tracking."""
     if insights_cache is None:
         return {"error": "Insights not yet processed"}
-    return insights_cache
+
+    response = insights_cache.copy()
+    for cluster in response.get("clusters", []):
+        cluster["custom_name"] = cluster_names.get(cluster["cluster_id"])
+    return response
 
 
 @app.get("/cluster/{cluster_id}")
@@ -240,6 +271,87 @@ async def assign_to_cluster(request: ClusterAssignmentRequest):
     )
 
     return result
+
+
+@app.post("/clusters/assign")
+async def manually_assign_cluster(request: ManualClusterAssignmentRequest):
+    """Manually assign a ticket to a cluster."""
+    global demo_tickets, insights_cache
+
+    if insights_cache is None:
+        raise HTTPException(status_code=503, detail="Insights not yet processed")
+
+    ticket_found = False
+    for ticket in demo_tickets:
+        if ticket["id"] == request.ticket_id:
+            ticket["cluster_id"] = request.cluster_id
+            ticket_found = True
+            break
+
+    if not ticket_found:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    insights_cache = ai_processor.process_tickets(demo_tickets)
+
+    return {
+        "message": f"Ticket {request.ticket_id} assigned to cluster {request.cluster_id}"
+    }
+
+
+@app.post("/clusters/merge")
+async def merge_clusters(request: ClusterMergeRequest):
+    """Merge two clusters into one (source into target)."""
+    global demo_tickets, insights_cache
+
+    if insights_cache is None:
+        raise HTTPException(status_code=503, detail="Insights not yet processed")
+
+    merged_count = 0
+    for ticket in demo_tickets:
+        if ticket.get("cluster_id") == request.source_cluster_id:
+            ticket["cluster_id"] = request.target_cluster_id
+            merged_count += 1
+
+    insights_cache = ai_processor.process_tickets(demo_tickets)
+
+    return {
+        "message": f"Merged {merged_count} tickets from cluster {request.source_cluster_id} into cluster {request.target_cluster_id}"
+    }
+
+
+@app.post("/clusters/name")
+async def update_cluster_name(request: ClusterNameRequest):
+    """Update custom name for a cluster."""
+    global cluster_names
+    cluster_names[request.cluster_id] = request.name
+    return {"message": f"Cluster {request.cluster_id} named '{request.name}'"}
+
+
+@app.get("/clusters/names")
+async def get_cluster_names():
+    """Get all custom cluster names."""
+    return cluster_names
+
+
+@app.post("/clusters/bulk-assign")
+async def bulk_assign_tickets(request: BulkAssignRequest):
+    """Assign multiple tickets to a cluster."""
+    global demo_tickets, insights_cache
+
+    if insights_cache is None:
+        raise HTTPException(status_code=503, detail="Insights not yet processed")
+
+    assigned_count = 0
+    for ticket in demo_tickets:
+        if ticket["id"] in request.ticket_ids:
+            ticket["cluster_id"] = request.cluster_id
+            assigned_count += 1
+
+    insights_cache = ai_processor.process_tickets(demo_tickets)
+
+    return {
+        "message": f"Assigned {assigned_count} tickets to cluster {request.cluster_id}"
+    }
 
 
 @app.get("/config")

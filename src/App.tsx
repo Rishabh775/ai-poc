@@ -48,23 +48,23 @@ function App() {
   const [sortBy, setSortBy] = useState<SortOption>("priority");
   const [activeTab, setActiveTab] = useState<TabType>("overview");
 
-  useEffect(() => {
-    const fetchInsights = async () => {
-      try {
-        setLoading(true);
-        const data = await api.getInsights();
-        setInsights(data);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to fetch insights:", err);
-        setError(
-          "Failed to load insights. Make sure the backend is running on http://localhost:8000"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchInsights = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getInsights();
+      setInsights(data);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch insights:", err);
+      setError(
+        "Failed to load insights. Make sure the backend is running on http://localhost:8000"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchInsights();
   }, []);
 
@@ -364,7 +364,7 @@ function App() {
         )}
 
         {activeTab === "tickets" && (
-          <AllTicketsPanel onClusterClick={handleClusterClick} />
+          <AllTicketsPanel onClusterClick={handleClusterClick} onClusterAssigned={fetchInsights} />
         )}
       </main>
 
@@ -373,7 +373,13 @@ function App() {
           <div className="absolute inset-0 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <ClusterDetailPanel
               cluster={selectedCluster}
+              allClusters={insights?.clusters || []}
               onClose={() => setSelectedCluster(null)}
+              onMerge={async (sourceId, targetId) => {
+                await api.mergeClusters(sourceId, targetId);
+                fetchInsights();
+              }}
+              onNameUpdate={fetchInsights}
             />
           </div>
         </div>

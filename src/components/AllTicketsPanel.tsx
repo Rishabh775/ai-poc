@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
-import { Search, AlertCircle, Plus, X, Loader2 } from "lucide-react";
+import { Search, AlertCircle, Plus, X, Loader2, Users } from "lucide-react";
 import { api, TicketWithCluster, Cluster } from "../services/api";
 
 interface AllTicketsPanelProps {
   onClusterClick?: (clusterId: number) => void;
+  onClusterAssigned?: () => void;
 }
 
 const WORKFLOWS = ["all", "submission", "review", "dashboard", "release", "infra"];
@@ -17,7 +18,7 @@ const SORT_OPTIONS = [
 const WORKFLOW_TYPES = ["submission", "review", "dashboard", "release", "infra"];
 const SEVERITY_LEVELS = ["critical", "high", "medium", "low"];
 
-export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
+export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicketsPanelProps) {
   const [tickets, setTickets] = useState<TicketWithCluster[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,9 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [clusterFilter, setClusterFilter] = useState<number | "all">("all");
   const [sortBy, setSortBy] = useState("timestamp");
+  const [assigningTicket, setAssigningTicket] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [selectedTickets, setSelectedTickets] = useState<Set<string>>(new Set());
 
   const fetchData = async () => {
     try {
@@ -181,6 +185,32 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
           </div>
 
           <button
+            onClick={() => {
+              const csv = [
+                ["ID", "Title", "Description", "Severity", "Workflow", "Cluster", "Timestamp"].join(","),
+                ...tickets.map(t => [
+                  t.id,
+                  `"${t.title.replace(/"/g, '""')}"`,
+                  `"${(t.description || "").replace(/"/g, '""')}"`,
+                  t.severity,
+                  t.workflow_type || "",
+                  t.cluster_id ?? "",
+                  t.timestamp
+                ].join(","))
+              ].join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `tickets-${new Date().toISOString().split("T")[0]}.csv`;
+              a.click();
+            }}
+            className="flex items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Export CSV
+          </button>
+
+          <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
           >
@@ -292,11 +322,16 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
           </select>
 
           <select
-            value={clusterFilter === "all" ? "all" : clusterFilter}
-            onChange={(e) => setClusterFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+            value={clusterFilter === "all" ? "all" : clusterFilter === -1 ? "unclustered" : clusterFilter}
+            onChange={(e) => {
+              if (e.target.value === "all") setClusterFilter("all");
+              else if (e.target.value === "unclustered") setClusterFilter(-1);
+              else setClusterFilter(Number(e.target.value));
+            }}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
           >
             <option value="all">All Clusters</option>
+            <option value="unclustered">Unclustered</option>
             {uniqueClusters.map((c) => (
               <option key={c.cluster_id} value={c.cluster_id}>
                 Cluster {c.cluster_id} ({c.workflow_type})
@@ -320,6 +355,47 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
         <div className="mt-3 text-sm text-zinc-500">
           Showing {filteredTickets.length} of {tickets.length} tickets
         </div>
+
+        {selectedTickets.size > 0 && (
+          <div className="sticky bottom-4 z-10 mt-3 flex items-center justify-between rounded-lg border border-sky-200 bg-sky-50 p-3 shadow-lg">
+            <span className="text-sm font-medium text-sky-700">
+              {selectedTickets.size} ticket(s) selected
+            </span>
+            <div className="flex gap-2">
+              <select
+                onChange={async (e) => {
+                  if (e.target.value) {
+                    setAssigning(true);
+                    try {
+                      await api.bulkAssignTickets(Array.from(selectedTickets), Number(e.target.value));
+                      setSelectedTickets(new Set());
+                      await fetchData();
+                      onClusterAssigned?.();
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setAssigning(false);
+                    }
+                  }
+                }}
+                className="rounded border border-sky-300 px-2 py-1 text-sm"
+              >
+                <option value="">Assign to cluster...</option>
+                {clusters.map((c) => (
+                  <option key={c.cluster_id} value={c.cluster_id}>
+                    Cluster {c.cluster_id} - {c.workflow_type}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSelectedTickets(new Set())}
+                className="rounded border border-sky-300 px-2 py-1 text-sm text-sky-700 hover:bg-sky-100"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -328,52 +404,107 @@ export function AllTicketsPanel({ onClusterClick }: AllTicketsPanelProps) {
             key={ticket.id}
             className="group rounded-lg border border-zinc-200 bg-white p-4 shadow-card transition-shadow hover:shadow-md"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-medium text-zinc-600">
-                    {ticket.id}
-                  </span>
-                  <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${getSeverityColor(ticket.severity)}`}>
-                    {ticket.severity}
-                  </span>
-                  {ticket.workflow_type && (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                      {ticket.workflow_type}
-                    </span>
-                  )}
-                  {ticket.category && (
-                    <span className="rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-xs font-medium text-sky-700">
-                      {ticket.category}
-                    </span>
-                  )}
-                  {ticket.cluster_id !== null && (
-                    <button
-                      onClick={() => onClusterClick?.(ticket.cluster_id!)}
-                      className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80 ${getClusterBadge(ticket.cluster_id)}`}
-                    >
-                      Cluster #{ticket.cluster_id}
-                    </button>
-                  )}
-                </div>
-                <h3 className="mt-2 text-sm font-medium text-zinc-900 line-clamp-2">
-                  {ticket.title}
-                </h3>
-                <p className="mt-1 text-xs text-zinc-500 line-clamp-2">
-                  {ticket.description}
-                </p>
-                <div className="mt-2 flex items-center gap-4 text-xs text-zinc-400">
-                  <span>{new Date(ticket.timestamp).toLocaleString()}</span>
-                  {ticket.cluster_priority && (
-                    <span className="text-zinc-500">
-                      Priority: {ticket.cluster_priority}
-                    </span>
-                  )}
-                  {ticket.cluster_impact && (
-                    <span className="text-zinc-500">
-                      Impact: {ticket.cluster_impact}
-                    </span>
-                  )}
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={selectedTickets.has(ticket.id)}
+                onChange={(e) => {
+                  const newSelected = new Set(selectedTickets);
+                  if (e.target.checked) {
+                    newSelected.add(ticket.id);
+                  } else {
+                    newSelected.delete(ticket.id);
+                  }
+                  setSelectedTickets(newSelected);
+                }}
+                className="mt-1 h-4 w-4 rounded border-zinc-300"
+              />
+              <div className="flex-1">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-medium text-zinc-600">
+                        {ticket.id}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${getSeverityColor(ticket.severity)}`}>
+                        {ticket.severity}
+                      </span>
+                      {ticket.workflow_type && (
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                          {ticket.workflow_type}
+                        </span>
+                      )}
+                      {ticket.category && (
+                        <span className="rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-xs font-medium text-sky-700">
+                          {ticket.category}
+                        </span>
+                      )}
+                      {ticket.cluster_id !== null && (
+                        <button
+                          onClick={() => onClusterClick?.(ticket.cluster_id!)}
+                          className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80 ${getClusterBadge(ticket.cluster_id)}`}
+                        >
+                          Cluster #{ticket.cluster_id}
+                        </button>
+                      )}
+                      {ticket.cluster_id === null && (
+                        <div className="relative">
+                          <button
+                            onClick={() => setAssigningTicket(assigningTicket === ticket.id ? null : ticket.id)}
+                            className="flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+                          >
+                            <Users className="h-3 w-3" />
+                            Assign
+                          </button>
+                          {assigningTicket === ticket.id && (
+                            <div className="absolute left-0 top-6 z-10 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
+                              {clusters.map((c) => (
+                                <button
+                                  key={c.cluster_id}
+                                  onClick={async () => {
+                                    setAssigning(true);
+                                    try {
+                                      await api.manuallyAssignCluster(ticket.id, c.cluster_id);
+                                      await fetchData();
+                                      setAssigningTicket(null);
+                                      onClusterAssigned?.();
+                                    } catch (err) {
+                                      console.error(err);
+                                    } finally {
+                                      setAssigning(false);
+                                    }
+                                  }}
+                                  disabled={assigning}
+                                  className="w-full px-3 py-2 text-left text-xs hover:bg-zinc-50"
+                                >
+                                  Cluster {c.cluster_id} - {c.workflow_type}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="mt-2 text-sm font-medium text-zinc-900 line-clamp-2">
+                      {ticket.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-zinc-500 line-clamp-2">
+                      {ticket.description}
+                    </p>
+                    <div className="mt-2 flex items-center gap-4 text-xs text-zinc-400">
+                      <span>{new Date(ticket.timestamp).toLocaleString()}</span>
+                      {ticket.cluster_priority && (
+                        <span className="text-zinc-500">
+                          Priority: {ticket.cluster_priority}
+                        </span>
+                      )}
+                      {ticket.cluster_impact && (
+                        <span className="text-zinc-500">
+                          Impact: {ticket.cluster_impact}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

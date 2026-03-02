@@ -127,7 +127,7 @@ class OperationalAIProcessor:
             ]
         )
 
-        clusters = self._cluster_issues_hybrid()
+        clusters, unclustered_tickets = self._cluster_issues_hybrid()
         clusters = self._compute_cluster_confidence(clusters)
         clusters = self._add_actionable_insights(clusters)
         self._store_cluster_centroids()
@@ -138,6 +138,7 @@ class OperationalAIProcessor:
 
         return {
             "clusters": clusters,
+            "unclustered_tickets": unclustered_tickets,
             "trends": trends,
             "change_tracking": change_tracking,
             "metrics": metrics,
@@ -209,7 +210,15 @@ class OperationalAIProcessor:
             )
 
         clusters.sort(key=lambda x: x["impact_score"], reverse=True)
-        return clusters
+
+        unclustered = self.tickets_df[self.tickets_df["cluster"] == -1]
+        unclustered_tickets = unclustered[
+            ["id", "title", "severity", "timestamp"]
+        ].to_dict("records")
+        for t in unclustered_tickets:
+            t["timestamp"] = t["timestamp"].isoformat()
+
+        return clusters, unclustered_tickets
 
     def _compute_cluster_confidence(self, clusters: List[Dict]) -> List[Dict]:
         """Compute confidence score for each cluster based on intra/inter-cluster similarity."""

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   X,
   Calendar,
@@ -7,12 +8,18 @@ import {
   Users,
   Gauge,
   Tag,
+  GitMerge,
+  Pencil,
+  Check,
 } from "lucide-react";
-import { Cluster } from "../services/api";
+import { Cluster, api } from "../services/api";
 
 interface ClusterDetailPanelProps {
   cluster: Cluster;
+  allClusters: Cluster[];
   onClose: () => void;
+  onMerge?: (sourceId: number, targetId: number) => void;
+  onNameUpdate?: () => void;
 }
 
 const severityColors: Record<string, string> = {
@@ -29,16 +36,87 @@ const priorityStyles: Record<string, string> = {
   P4: "bg-zinc-500 text-white",
 };
 
-export function ClusterDetailPanel({ cluster, onClose }: ClusterDetailPanelProps) {
+export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onNameUpdate }: ClusterDetailPanelProps) {
+  const [showMergeDropdown, setShowMergeDropdown] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [clusterName, setClusterName] = useState(cluster.custom_name || "");
   const severityEntries = Object.entries(cluster.severity_distribution || {});
   const priority = cluster.priority_level || "P3";
+
+  const handleSaveName = async () => {
+    if (clusterName.trim()) {
+      await api.updateClusterName(cluster.cluster_id, clusterName.trim());
+      setIsEditingName(false);
+      onNameUpdate?.();
+    }
+  };
 
   return (
     <div className="absolute right-0 top-0 min-h-screen w-full max-w-lg flex-col border-l border-zinc-200 bg-white shadow-xl">
       <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 shrink-0">
-        <h2 className="text-lg font-semibold text-zinc-900">
-          Cluster #{cluster.cluster_id}
-        </h2>
+        <div className="flex items-center gap-3">
+          {isEditingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={clusterName}
+                onChange={(e) => setClusterName(e.target.value)}
+                className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                placeholder="Cluster name"
+                autoFocus
+              />
+              <button onClick={handleSaveName} className="text-green-600">
+                <Check className="h-4 w-4" />
+              </button>
+              <button onClick={() => setIsEditingName(false)} className="text-zinc-500">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-zinc-900">
+                {cluster.custom_name || `Cluster #${cluster.cluster_id}`}
+              </h2>
+              <button
+                onClick={() => {
+                  setClusterName(cluster.custom_name || "");
+                  setIsEditingName(true);
+                }}
+                className="text-zinc-400 hover:text-zinc-600"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setShowMergeDropdown(!showMergeDropdown)}
+              className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+            >
+              <GitMerge className="h-3 w-3" />
+              Merge
+            </button>
+            {showMergeDropdown && (
+              <div className="absolute right-0 top-8 z-10 w-56 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
+                <p className="px-3 py-1 text-xs font-medium text-zinc-500">Merge into:</p>
+                {allClusters
+                  .filter((c) => c.cluster_id !== cluster.cluster_id)
+                  .map((c) => (
+                    <button
+                      key={c.cluster_id}
+                      onClick={() => {
+                        onMerge?.(cluster.cluster_id, c.cluster_id);
+                        setShowMergeDropdown(false);
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs hover:bg-zinc-50"
+                    >
+                      Cluster {c.cluster_id} ({c.workflow_type})
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
         <button
           onClick={onClose}
           className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
@@ -89,6 +167,22 @@ export function ClusterDetailPanel({ cluster, onClose }: ClusterDetailPanelProps
             </p>
             <p className="mt-1 text-2xl font-bold text-zinc-900">
               {cluster.impact_score}
+            </p>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Workflow
+            </p>
+            <p className="mt-1 text-lg font-semibold text-zinc-900 capitalize">
+              {cluster.workflow_type}
+            </p>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Time span
+            </p>
+            <p className="mt-1 text-lg font-semibold text-zinc-900">
+              {Math.ceil((new Date(cluster.last_seen).getTime() - new Date(cluster.first_seen).getTime()) / (1000 * 60 * 60 * 24))} days
             </p>
           </div>
           {cluster.risk_score != null && (
