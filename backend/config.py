@@ -6,7 +6,7 @@ import os
 from typing import Dict
 
 SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.80"))
-DBSCAN_EPS: float = float(os.getenv("DBSCAN_EPS", "0.5"))
+DBSCAN_EPS: float = float(os.getenv("DBSCAN_EPS", "0.3"))
 MIN_SAMPLES: int = int(os.getenv("MIN_SAMPLES", "2"))
 
 SEVERITY_WEIGHTS: Dict[str, float] = {
