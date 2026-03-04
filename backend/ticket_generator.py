@@ -44,6 +44,86 @@ class TicketGenerator:
             "severity": "medium",
             "category": "Review Comments",
         },
+        {
+    "id": "SE-002",
+    "title": "File upload fails for large documents",
+    "description": "Users receive an error when uploading files larger than 10MB during submission.",
+    "workflow_type": "submission",
+    "severity": "high",
+    "category": "File handling"
+},
+{
+    "id": "SE-003",
+    "title": "Form validation not triggering on required fields",
+    "description": "Mandatory fields are not showing validation errors when left empty.",
+    "workflow_type": "submission",
+    "severity": "medium",
+    "category": "Validation"
+},
+{
+    "id": "SE-004",
+    "title": "Autosave not persisting draft data",
+    "description": "Draft responses are lost after page refresh despite autosave being enabled.",
+    "workflow_type": "submission",
+    "severity": "high",
+    "category": "Draft management"
+},
+{
+    "id": "SE-005",
+    "title": "Incorrect error message on payment failure",
+    "description": "Users see a generic technical error instead of a payment declined message.",
+    "workflow_type": "payment",
+    "severity": "medium",
+    "category": "Payment processing"
+},
+{
+    "id": "SE-006",
+    "title": "Slow loading on dashboard overview",
+    "description": "Dashboard takes more than 15 seconds to load user submission summaries.",
+    "workflow_type": "dashboard",
+    "severity": "high",
+    "category": "Performance"
+},
+{
+    "id": "SE-007",
+    "title": "Email notification not triggered after submission",
+    "description": "Users do not receive confirmation emails after successfully submitting the form.",
+    "workflow_type": "notification",
+    "severity": "critical",
+    "category": "Email service"
+},
+{
+    "id": "SE-008",
+    "title": "Session timeout without warning",
+    "description": "Users are logged out abruptly without prior timeout warning during long submissions.",
+    "workflow_type": "authentication",
+    "severity": "high",
+    "category": "Session management"
+},
+{
+    "id": "SE-009",
+    "title": "Incorrect status displayed in submission history",
+    "description": "Completed submissions are incorrectly marked as pending in the history view.",
+    "workflow_type": "submission",
+    "severity": "medium",
+    "category": "Status tracking"
+},
+{
+    "id": "SE-010",
+    "title": "Search filter not applying correctly",
+    "description": "Filtering submissions by date range returns inconsistent or incomplete results.",
+    "workflow_type": "dashboard",
+    "severity": "low",
+    "category": "Search & filter"
+},
+{
+    "id": "SE-011",
+    "title": "Duplicate submissions created on retry",
+    "description": "Retrying submission after network failure creates multiple duplicate entries.",
+    "workflow_type": "submission",
+    "severity": "critical",
+    "category": "Data integrity"
+}
     ]
 
     def __init__(self, num_tickets: int = None, include_test_cases: bool = True):
