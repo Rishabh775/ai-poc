@@ -7,6 +7,7 @@ Features:
 - Dynamic cluster assignment for new tickets
 - Cluster confidence scoring
 - Improved text normalization for better embedding quality
+- Domain stopword stripping to prevent false cross-cluster merges
 """
 
 import re
@@ -25,27 +26,51 @@ import config
 class OperationalAIProcessor:
     """AI-powered ticket clustering and analysis processor."""
 
+    # Words that appear across ALL tickets in this system and add no cluster signal.
+    # Kept minimal and surgical — only strip truly universal noise.
+    # DO NOT add discriminative words like: upload, session, email, autosave,
+    # comment, recommendation, permission, status, performance, validation, access.
+    # Those are the actual cluster signals and must be preserved.
+    DOMAIN_NOISE_WORDS = [
+        # Platform/entity noise — appear in every ticket
+        "manuscript", "submission", "submissions",
+        "reviewer", "reviewers", "editor", "editors",
+        "portal", "system", "users", "user",
+        "authors", "author", "jmed",
+        # UI interaction noise — appear in every ticket
+        "clicking", "click", "button", "page",
+        "field", "fields", "form", "forms",
+        # Cross-cluster bridge words — cause false merges
+        "decision", "notification",
+    ]
+
     def __init__(self):
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
         self.embeddings: Optional[np.ndarray] = None
-        self.hybrid_embeddings: Optional[np.ndarray] = None
         self.tickets_df: Optional[pd.DataFrame] = None
         self.cluster_centroids: Dict[int, np.ndarray] = {}
         self.cluster_info: Dict[int, Dict] = {}
 
-    def normalize_ticket_text(
-        self, title: str, description: str, workflow_type: str, severity: str
-    ) -> str:
+    def normalize_ticket_text(self, title: str, description: str, severity: str) -> str:
         """Create enriched combined text with normalization.
 
         Normalization steps:
         - lowercase
+        - strip domain noise words (universal across all tickets, cause false merges)
         - remove emails
         - remove IDs (manuscript IDs, ticket IDs)
         - strip extra whitespace
+
+        Note: Severity is intentionally excluded from the embedding text.
+        It is already captured in metadata and including it as a prefix
+        skews embeddings toward severity rather than semantic topic.
         """
-        combined = f"Workflow: {workflow_type} Severity: {severity} Title: {title} Description: {description}"
+        combined = f"{title}. {description}"
         combined = combined.lower()
+
+        for word in self.DOMAIN_NOISE_WORDS:
+            combined = re.sub(rf"\b{word}\b", "", combined)
+
         combined = re.sub(
             r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "", combined
         )
@@ -61,8 +86,12 @@ class OperationalAIProcessor:
         Users may not remember workflow type or severity,
         so we search only by title text.
         """
-        combined = f"Title: {title}"
+        combined = f"{title}"
         combined = combined.lower()
+
+        for word in self.DOMAIN_NOISE_WORDS:
+            combined = re.sub(rf"\b{word}\b", "", combined)
+
         combined = re.sub(
             r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "", combined
         )
@@ -71,23 +100,6 @@ class OperationalAIProcessor:
         combined = re.sub(r"\s+", " ", combined)
         combined = combined.strip()
         return combined
-
-    def create_hybrid_vector(
-        self, embedding: np.ndarray, workflow_type: str, severity: str
-    ) -> np.ndarray:
-        """Combine semantic embedding with metadata encoding.
-
-        Creates a hybrid vector by concatenating:
-        - Text embedding (384 dimensions for all-MiniLM-L6-v2)
-        - One-hot encoded workflow_type (5 dimensions)
-        - Severity weight (1 dimension)
-        """
-        workflow_encoding = config.WORKFLOW_ENCODINGS.get(workflow_type, [0.0] * 5)
-        severity_weight = config.SEVERITY_WEIGHTS.get(severity, 1.0)
-
-        metadata = np.array(workflow_encoding + [severity_weight / 10.0])
-        hybrid = np.concatenate([embedding, metadata])
-        return hybrid
 
     def cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
         """Compute cosine similarity between two vectors."""
@@ -114,18 +126,11 @@ class OperationalAIProcessor:
 
         normalized_texts = [
             self.normalize_ticket_text(
-                row["title"], row["description"], row["workflow_type"], row["severity"]
+                row["title"], row["description"], row["severity"]
             )
             for _, row in self.tickets_df.iterrows()
         ]
         self.embeddings = self.model.encode(normalized_texts, show_progress_bar=False)
-
-        self.hybrid_embeddings = np.array(
-            [
-                self.create_hybrid_vector(emb, row["workflow_type"], row["severity"])
-                for emb, (_, row) in zip(self.embeddings, self.tickets_df.iterrows())
-            ]
-        )
 
         clusters, unclustered_tickets = self._cluster_issues_hybrid()
         clusters = self._compute_cluster_confidence(clusters)
@@ -153,6 +158,15 @@ class OperationalAIProcessor:
         )
         labels = clustering.fit_predict(self.embeddings)
         self.tickets_df["cluster"] = labels
+
+        # --- Diagnostic: nearest-neighbor distances per ticket ---
+        # Uncomment during tuning to inspect EPS calibration.
+        # from sklearn.metrics.pairwise import cosine_distances
+        # dist_matrix = cosine_distances(self.embeddings)
+        # for i, row in enumerate(dist_matrix):
+        #     sorted_dists = sorted(row)
+        #     nearest = sorted_dists[1]  # skip self (distance=0)
+        #     print(f"{self.tickets_df.iloc[i]['id']:10s}  nearest_neighbor_dist={nearest:.3f}")
 
         clusters = []
         unique_labels = set(labels)
@@ -182,12 +196,6 @@ class OperationalAIProcessor:
                 t["timestamp"] = t["timestamp"].isoformat()
 
             summary = self._generate_cluster_summary(cluster_tickets)
-            workflow = (
-                cluster_tickets["workflow_type"].mode()[0]
-                if len(cluster_tickets) > 0
-                else "unknown"
-            )
-
             top_keywords = self._extract_top_keywords(cluster_tickets)
             representative_ticket = example_tickets[0] if example_tickets else None
 
@@ -197,7 +205,6 @@ class OperationalAIProcessor:
                     "incident_count": len(cluster_tickets),
                     "impact_score": round(impact_score, 2),
                     "severity_distribution": severity_counts,
-                    "workflow_type": workflow,
                     "example_tickets": example_tickets,
                     "all_tickets": all_tickets,
                     "summary": summary,
@@ -244,14 +251,17 @@ class OperationalAIProcessor:
 
             avg_intra = np.mean(intra_similarities) if intra_similarities else 0.0
 
-            other_indices = [
-                i for i in range(len(self.embeddings)) if i not in cluster_indices
-            ]
-            if other_indices:
+            other_cluster_indices = self.tickets_df[
+                (self.tickets_df["cluster"] != cluster_id)
+                & (self.tickets_df["cluster"] != -1)
+            ].index.tolist()
+
+            if other_cluster_indices:
                 inter_similarities = []
-                sample_size = min(50, len(other_indices))
+                sample_size = min(50, len(other_cluster_indices))
+                np.random.seed(42)
                 sampled_others = np.random.choice(
-                    other_indices, sample_size, replace=False
+                    other_cluster_indices, sample_size, replace=False
                 )
 
                 for ci in cluster_indices[:10]:
@@ -291,9 +301,6 @@ class OperationalAIProcessor:
 
             cluster_tickets = self.tickets_df[cluster_mask]
             self.cluster_info[label] = {
-                "workflow_type": cluster_tickets["workflow_type"].mode()[0]
-                if len(cluster_tickets) > 0
-                else "unknown",
                 "severity_distribution": cluster_tickets["severity"]
                 .value_counts()
                 .to_dict(),
@@ -304,7 +311,6 @@ class OperationalAIProcessor:
         self,
         title: str,
         description: str = "",
-        workflow_type: str = "",
         severity: str = "",
         title_only: bool = False,
     ) -> Dict:
@@ -313,9 +319,8 @@ class OperationalAIProcessor:
         Args:
             title: Ticket title (required)
             description: Ticket description (optional)
-            workflow_type: Workflow type (optional, used if title_only=False)
             severity: Severity level (optional, used if title_only=False)
-            title_only: If True, search only by title (ignoring workflow_type and severity)
+            title_only: If True, search only by title
 
         Returns:
             is_duplicate: Whether similarity exceeds threshold
@@ -335,12 +340,9 @@ class OperationalAIProcessor:
         if title_only:
             normalized_text = self.normalize_title_only(title)
         else:
-            normalized_text = self.normalize_ticket_text(
-                title, description, workflow_type, severity
-            )
-        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[
-            0
-        ]
+            normalized_text = self.normalize_ticket_text(title, description, severity)
+
+        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[0]
 
         similarities = self.compute_similarities(query_embedding, self.embeddings)
         best_match_idx = np.argmax(similarities)
@@ -374,9 +376,7 @@ class OperationalAIProcessor:
                 "message": "No matching cluster found",
             }
 
-    def assign_to_cluster(
-        self, title: str, description: str, workflow_type: str, severity: str
-    ) -> Dict:
+    def assign_to_cluster(self, title: str, description: str, severity: str) -> Dict:
         """Dynamically assign a new ticket to existing cluster or create new cluster.
 
         Uses centroid-based assignment with configurable threshold.
@@ -389,12 +389,8 @@ class OperationalAIProcessor:
                 "message": "No existing clusters - new cluster will be created",
             }
 
-        normalized_text = self.normalize_ticket_text(
-            title, description, workflow_type, severity
-        )
-        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[
-            0
-        ]
+        normalized_text = self.normalize_ticket_text(title, description, severity)
+        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[0]
 
         best_cluster_id = -1
         best_similarity = 0.0
@@ -421,23 +417,19 @@ class OperationalAIProcessor:
             }
 
     def _add_actionable_insights(self, clusters: List[Dict]) -> List[Dict]:
-        """Extend clusters with recommended_action, priority_level, owner_team, etc."""
+        """Extend clusters with recommended_action, priority_level, etc."""
         for c in clusters:
-            workflow = c["workflow_type"]
             impact = c["impact_score"]
             severity_counts = c.get("severity_distribution", {})
             incident_count = c["incident_count"]
             confidence = c.get("cluster_confidence_score", 0.5)
 
-            owner_team = config.WORKFLOW_TO_TEAM.get(workflow, "Platform Team")
-            c["owner_team"] = owner_team
+            summary = c.get("summary", "")
 
-            actions = config.ACTION_TEMPLATES.get(
-                workflow, ["Investigate root cause and implement fix"]
-            )
-            c["recommended_action"] = (
-                actions[0] if actions else "Investigate and remediate"
-            )
+            if summary:
+                c["recommended_action"] = summary
+            else:
+                c["recommended_action"] = "Investigate root cause and implement fix"
 
             risk_score = min(
                 (
@@ -512,7 +504,6 @@ class OperationalAIProcessor:
 
     def _generate_cluster_summary(self, cluster_tickets: pd.DataFrame) -> str:
         """Human-readable summary of cluster."""
-        workflow = cluster_tickets["workflow_type"].mode()[0]
         count = len(cluster_tickets)
         severity_mode = cluster_tickets["severity"].mode()[0]
         common_terms = self._extract_common_terms(cluster_tickets)
@@ -520,7 +511,7 @@ class OperationalAIProcessor:
             cluster_tickets["timestamp"].max() - cluster_tickets["timestamp"].min()
         ).days
 
-        summary = f"Recurring {severity_mode} severity issue in {workflow} workflow. "
+        summary = f"Recurring {severity_mode} severity issue. "
         summary += f"{count} incidents over {time_span} days. "
         if common_terms:
             summary += f"Common patterns: {', '.join(common_terms[:3])}. "
@@ -535,90 +526,16 @@ class OperationalAIProcessor:
     def _extract_common_terms(self, cluster_tickets: pd.DataFrame) -> List[str]:
         """Extract most common terms from cluster tickets."""
         stop = {
-            "the",
-            "a",
-            "an",
-            "and",
-            "or",
-            "but",
-            "in",
-            "on",
-            "at",
-            "to",
-            "for",
-            "of",
-            "with",
-            "by",
-            "is",
-            "are",
-            "was",
-            "were",
-            "be",
-            "been",
-            "being",
-            "have",
-            "has",
-            "had",
-            "do",
-            "does",
-            "did",
-            "will",
-            "would",
-            "could",
-            "should",
-            "may",
-            "might",
-            "must",
-            "shall",
-            "can",
-            "need",
-            "dare",
-            "ought",
-            "used",
-            "to",
-            "from",
-            "up",
-            "out",
-            "about",
-            "into",
-            "through",
-            "during",
-            "before",
-            "after",
-            "above",
-            "below",
-            "between",
-            "under",
-            "again",
-            "further",
-            "then",
-            "once",
-            "here",
-            "there",
-            "when",
-            "where",
-            "why",
-            "how",
-            "all",
-            "each",
-            "few",
-            "more",
-            "most",
-            "other",
-            "some",
-            "such",
-            "no",
-            "nor",
-            "not",
-            "only",
-            "own",
-            "same",
-            "so",
-            "than",
-            "too",
-            "very",
-            "just",
-            "now",
+            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+            "of", "with", "by", "is", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "do", "does", "did", "will", "would", "could",
+            "should", "may", "might", "must", "shall", "can", "need", "dare",
+            "ought", "used", "to", "from", "up", "out", "about", "into", "through",
+            "during", "before", "after", "above", "below", "between", "under",
+            "again", "further", "then", "once", "here", "there", "when", "where",
+            "why", "how", "all", "each", "few", "more", "most", "other", "some",
+            "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too",
+            "very", "just", "now",
         }
         all_titles = " ".join(cluster_tickets["title"].tolist()).lower()
         words = [w for w in all_titles.split() if w not in stop and len(w) > 3]
@@ -632,115 +549,18 @@ class OperationalAIProcessor:
         ).lower()
 
         stop = {
-            "the",
-            "a",
-            "an",
-            "and",
-            "or",
-            "but",
-            "in",
-            "on",
-            "at",
-            "to",
-            "for",
-            "of",
-            "with",
-            "by",
-            "is",
-            "are",
-            "was",
-            "were",
-            "be",
-            "been",
-            "being",
-            "have",
-            "has",
-            "had",
-            "do",
-            "does",
-            "did",
-            "will",
-            "would",
-            "could",
-            "should",
-            "may",
-            "might",
-            "must",
-            "shall",
-            "can",
-            "need",
-            "dare",
-            "ought",
-            "used",
-            "from",
-            "up",
-            "out",
-            "about",
-            "into",
-            "through",
-            "during",
-            "before",
-            "after",
-            "above",
-            "below",
-            "between",
-            "under",
-            "again",
-            "further",
-            "then",
-            "once",
-            "here",
-            "there",
-            "when",
-            "where",
-            "why",
-            "how",
-            "all",
-            "each",
-            "few",
-            "more",
-            "most",
-            "other",
-            "some",
-            "such",
-            "no",
-            "nor",
-            "not",
-            "only",
-            "own",
-            "same",
-            "so",
-            "than",
-            "too",
-            "very",
-            "just",
-            "now",
-            "this",
-            "that",
-            "these",
-            "those",
-            "it",
-            "its",
-            "we",
-            "our",
-            "they",
-            "their",
-            "them",
-            "you",
-            "your",
-            "he",
-            "she",
-            "him",
-            "her",
-            "his",
-            "i",
-            "me",
-            "my",
-            "which",
-            "what",
-            "who",
-            "whom",
-            "whose",
+            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+            "of", "with", "by", "is", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "do", "does", "did", "will", "would", "could",
+            "should", "may", "might", "must", "shall", "can", "need", "dare",
+            "ought", "used", "from", "up", "out", "about", "into", "through",
+            "during", "before", "after", "above", "below", "between", "under",
+            "again", "further", "then", "once", "here", "there", "when", "where",
+            "why", "how", "all", "each", "few", "more", "most", "other", "some",
+            "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too",
+            "very", "just", "now", "this", "that", "these", "those", "it", "its",
+            "we", "our", "they", "their", "them", "you", "your", "he", "she", "him",
+            "her", "his", "i", "me", "my", "which", "what", "who", "whom", "whose",
         }
 
         words = [w for w in re.findall(r"\b[a-z]{4,}\b", all_text) if w not in stop]
@@ -748,7 +568,7 @@ class OperationalAIProcessor:
         return [w for w, _ in common[:8]]
 
     def _detect_trends(self) -> Dict:
-        """Daily incidents, severity over time, workflow distribution."""
+        """Daily incidents, severity over time."""
         self.tickets_df["date"] = self.tickets_df["timestamp"].dt.date
         daily = self.tickets_df.groupby("date").size().reset_index(name="count")
         daily["date"] = daily["date"].astype(str)
@@ -760,8 +580,6 @@ class OperationalAIProcessor:
         )
         severity_over_time.columns = ["date", "severity", "count"]
         severity_over_time["date"] = severity_over_time["date"].astype(str)
-
-        workflow_dist = self.tickets_df["workflow_type"].value_counts().to_dict()
 
         recent_7d = self.tickets_df[
             self.tickets_df["timestamp"] > (datetime.now() - timedelta(days=7))
@@ -782,7 +600,6 @@ class OperationalAIProcessor:
         return {
             "daily_incidents": daily.to_dict("records"),
             "severity_over_time": severity_over_time.to_dict("records"),
-            "workflow_distribution": workflow_dist,
             "trend_direction": trend_direction,
             "recent_7d_count": len(recent_7d),
             "previous_7d_count": len(previous_7d),

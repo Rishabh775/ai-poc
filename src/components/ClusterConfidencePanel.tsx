@@ -119,7 +119,7 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
                   </span>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-zinc-600">
-                  {cluster.workflow_type} · {cluster.incident_count} tickets
+                  {cluster.incident_count} tickets
                 </p>
               </div>
               <div className="text-right">

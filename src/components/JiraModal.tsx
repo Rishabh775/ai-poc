@@ -43,37 +43,31 @@ export function JiraModal({ draft, onClose }: JiraModalProps) {
                 </span>
               </p>
             </div>
+
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Owner team
+                Impact explanation
               </label>
-              <p className="mt-1 text-zinc-900">{draft.owner_team}</p>
+              <p className="mt-1 text-sm text-zinc-700">
+                {draft.impact_explanation}
+              </p>
             </div>
-          </div>
 
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Impact explanation
-            </label>
-            <p className="mt-1 text-sm text-zinc-700">
-              {draft.impact_explanation}
-            </p>
-          </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Cluster summary
+              </label>
+              <p className="mt-1 text-sm text-zinc-700">{draft.cluster_summary}</p>
+            </div>
 
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Cluster summary
-            </label>
-            <p className="mt-1 text-sm text-zinc-700">{draft.cluster_summary}</p>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Recommended action
-            </label>
-            <p className="mt-1 font-medium text-zinc-900">
-              {draft.recommended_action}
-            </p>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Recommended action
+              </label>
+              <p className="mt-1 font-medium text-zinc-900">
+                {draft.recommended_action}
+              </p>
+            </div>
           </div>
 
           <div>

@@ -110,7 +110,7 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
                       }}
                       className="w-full px-3 py-2 text-left text-xs hover:bg-zinc-50"
                     >
-                      Cluster {c.cluster_id} ({c.workflow_type})
+                      Cluster {c.cluster_id}
                     </button>
                   ))}
               </div>
@@ -136,9 +136,6 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
           </span>
           <span className="text-sm capitalize text-zinc-600">
             {cluster.urgency_tag || "elevated"}
-          </span>
-          <span className="text-sm text-zinc-600">
-            {cluster.owner_team || "Platform Team"}
           </span>
         </div>
 
@@ -167,14 +164,6 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
             </p>
             <p className="mt-1 text-2xl font-bold text-zinc-900">
               {cluster.impact_score}
-            </p>
-          </div>
-          <div className="rounded-lg bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Workflow
-            </p>
-            <p className="mt-1 text-lg font-semibold text-zinc-900 capitalize">
-              {cluster.workflow_type}
             </p>
           </div>
           <div className="rounded-lg bg-zinc-50 p-4">

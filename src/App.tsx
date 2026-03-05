@@ -10,8 +10,6 @@ import { api, InsightsResponse, Cluster, JiraDraft } from "./services/api";
 import { MetricCard } from "./components/MetricCard";
 import { TopIssueCard } from "./components/TopIssueCard";
 import { TrendChart } from "./components/TrendChart";
-import { SeverityChart } from "./components/SeverityChart";
-import { WorkflowChart } from "./components/WorkflowChart";
 import { ClusterDistributionChart } from "./components/ClusterDistributionChart";
 import { ClusterPanel } from "./components/ClusterPanel";
 import { ExecutiveSummary } from "./components/ExecutiveSummary";
@@ -133,18 +131,6 @@ function App() {
 
   const { metrics, trends, change_tracking } = insights;
   const trendDir = change_tracking?.trend_direction ?? "stable";
-
-  const severityData = insights.clusters.reduce(
-    (acc, cluster) => {
-      Object.entries(cluster.severity_distribution || {}).forEach(
-        ([severity, count]) => {
-          acc[severity] = (acc[severity] || 0) + count;
-        }
-      );
-      return acc;
-    },
-    {} as Record<string, number>
-  );
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100">
@@ -300,11 +286,6 @@ function App() {
 
             <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
               <TrendChart data={trends.daily_incidents} />
-              <WorkflowChart data={trends.workflow_distribution} />
-            </div>
-
-            <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <SeverityChart data={severityData} />
               <ClusterDistributionChart clusters={insights.clusters} />
             </div>
 
@@ -330,6 +311,7 @@ function App() {
 
             <ClusterPanel
               clusters={insights.clusters}
+              unclusteredTickets={insights.unclustered_tickets || []}
               sortBy={sortBy}
               onDetails={handleDetails}
               onCreateJira={handleCreateJira}

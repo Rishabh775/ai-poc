@@ -7,7 +7,6 @@ interface AllTicketsPanelProps {
   onClusterAssigned?: () => void;
 }
 
-const WORKFLOWS = ["all", "submission", "review", "dashboard", "release", "infra"];
 const SEVERITIES = ["all", "critical", "high", "medium", "low"];
 const SORT_OPTIONS = [
   { value: "timestamp", label: "Date" },
@@ -15,7 +14,6 @@ const SORT_OPTIONS = [
   { value: "severity", label: "Severity" },
 ];
 
-const WORKFLOW_TYPES = ["submission", "review", "dashboard", "release", "infra"];
 const SEVERITY_LEVELS = ["critical", "high", "medium", "low"];
 
 export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicketsPanelProps) {
@@ -29,12 +27,10 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
   const [newTicket, setNewTicket] = useState({
     title: "",
     description: "",
-    workflow_type: "",
     severity: "medium",
   });
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [workflowFilter, setWorkflowFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [clusterFilter, setClusterFilter] = useState<number | "all">("all");
   const [sortBy, setSortBy] = useState("timestamp");
@@ -68,7 +64,7 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
     setAdding(true);
     try {
       await api.createTicket(newTicket);
-      setNewTicket({ title: "", description: "", workflow_type: "review", severity: "medium" });
+      setNewTicket({ title: "", description: "", severity: "medium" });
       setShowAddForm(false);
       await fetchData();
     } catch (err) {
@@ -91,16 +87,12 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
       );
     }
 
-    if (workflowFilter !== "all") {
-      result = result.filter((t) => t.workflow_type === workflowFilter);
-    }
-
     if (severityFilter !== "all") {
       result = result.filter((t) => t.severity === severityFilter);
     }
 
     if (clusterFilter !== "all") {
-      result = result.filter((t) => t.cluster_id === clusterFilter);
+      result = result.filter((t) => clusterFilter === -1 ? t.cluster_id === null : t.cluster_id === clusterFilter);
     }
 
     result.sort((a, b) => {
@@ -118,7 +110,7 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
     });
 
     return result;
-  }, [tickets, searchQuery, workflowFilter, severityFilter, clusterFilter, sortBy]);
+  }, [tickets, searchQuery, severityFilter, clusterFilter, sortBy]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -187,13 +179,12 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
           <button
             onClick={() => {
               const csv = [
-                ["ID", "Title", "Description", "Severity", "Workflow", "Cluster", "Timestamp"].join(","),
+                ["ID", "Title", "Description", "Severity", "Cluster", "Timestamp"].join(","),
                 ...tickets.map(t => [
                   t.id,
                   `"${t.title.replace(/"/g, '""')}"`,
                   `"${(t.description || "").replace(/"/g, '""')}"`,
                   t.severity,
-                  t.workflow_type || "",
                   t.cluster_id ?? "",
                   t.timestamp
                 ].join(","))
@@ -250,19 +241,7 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
                   rows={2}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={newTicket.workflow_type}
-                  onChange={(e) => setNewTicket({ ...newTicket, workflow_type: e.target.value })}
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
-                >
-                  <option value="">Select workflow (optional)</option>
-                  {WORKFLOW_TYPES.map((w) => (
-                    <option key={w} value={w}>
-                      {w.charAt(0).toUpperCase() + w.slice(1)}
-                    </option>
-                  ))}
-                </select>
+              <div>
                 <select
                   value={newTicket.severity}
                   onChange={(e) => setNewTicket({ ...newTicket, severity: e.target.value })}
@@ -298,18 +277,6 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
 
         <div className="mt-4 flex flex-wrap gap-2">
           <select
-            value={workflowFilter}
-            onChange={(e) => setWorkflowFilter(e.target.value)}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
-          >
-            {WORKFLOWS.map((w) => (
-              <option key={w} value={w}>
-                {w === "all" ? "All Workflows" : w.charAt(0).toUpperCase() + w.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          <select
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
@@ -334,7 +301,7 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
             <option value="unclustered">Unclustered</option>
             {uniqueClusters.map((c) => (
               <option key={c.cluster_id} value={c.cluster_id}>
-                Cluster {c.cluster_id} ({c.workflow_type})
+                Cluster {c.cluster_id}
               </option>
             ))}
           </select>
@@ -383,7 +350,7 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
                 <option value="">Assign to cluster...</option>
                 {clusters.map((c) => (
                   <option key={c.cluster_id} value={c.cluster_id}>
-                    Cluster {c.cluster_id} - {c.workflow_type}
+                    Cluster {c.cluster_id}
                   </option>
                 ))}
               </select>
@@ -429,11 +396,6 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
                       <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${getSeverityColor(ticket.severity)}`}>
                         {ticket.severity}
                       </span>
-                      {ticket.workflow_type && (
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                          {ticket.workflow_type}
-                        </span>
-                      )}
                       {ticket.category && (
                         <span className="rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-xs font-medium text-sky-700">
                           {ticket.category}
@@ -498,7 +460,7 @@ export function AllTicketsPanel({ onClusterClick, onClusterAssigned }: AllTicket
                                   disabled={assigning}
                                   className="w-full px-3 py-2 text-left text-xs hover:bg-zinc-50"
                                 >
-                                  Cluster {c.cluster_id} - {c.workflow_type}
+                                  Cluster {c.cluster_id}
                                 </button>
                               ))}
                             </div>

@@ -55,7 +55,7 @@ export function SeverityChart({ data }: SeverityChartProps) {
                 borderRadius: "8px",
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.07)",
               }}
-              formatter={(value: number) => [value, "Incidents"]}
+              formatter={(value) => [value, "Incidents"]}
             />
             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {chartData.map((entry, index) => (

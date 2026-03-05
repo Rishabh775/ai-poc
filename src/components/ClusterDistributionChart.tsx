@@ -22,7 +22,6 @@ export function ClusterDistributionChart({
   const chartData = clusters.slice(0, 8).map((c) => ({
     name: `#${c.cluster_id}`,
     count: c.incident_count,
-    workflow: c.workflow_type,
   }));
 
   return (
@@ -62,21 +61,10 @@ export function ClusterDistributionChart({
                 borderRadius: "8px",
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.07)",
               }}
-              formatter={(
-                value: number,
-                _name: string,
-                props: { payload?: { workflow?: string } }
-              ) => [
-                `${value} incidents${
-                  props.payload?.workflow
-                    ? ` · ${props.payload.workflow}`
-                    : ""
-                }`,
-                "Count",
-              ]}
+              formatter={(value) => [`${value} incidents`, "Count"]}
             />
             <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-              {chartData.map((entry, index) => (
+              {chartData.map((_entry, index) => (
                 <Cell key={index} fill={COLORS[index % COLORS.length]} />
               ))}
             </Bar>

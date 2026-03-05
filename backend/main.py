@@ -34,7 +34,6 @@ app.add_middleware(
 class DuplicateCheckRequest(BaseModel):
     title: str
     description: Optional[str] = ""
-    workflow_type: Optional[str] = ""
     severity: Optional[str] = ""
     title_only: bool = True
 
@@ -50,7 +49,6 @@ class DuplicateCheckResponse(BaseModel):
 class ClusterAssignmentRequest(BaseModel):
     title: str
     description: str
-    workflow_type: str
     severity: str
 
 
@@ -81,7 +79,6 @@ class UnassignTicketRequest(BaseModel):
 class CreateTicketRequest(BaseModel):
     title: str
     description: str
-    workflow_type: str
     severity: str
     category: Optional[str] = None
 
@@ -152,7 +149,6 @@ async def search_tickets(q: str = ""):
             "id": t["id"],
             "title": t["title"],
             "severity": t["severity"],
-            "workflow_type": t["workflow_type"],
         }
         for t in demo_tickets
         if q_lower in t["title"].lower() or q_lower in t["description"].lower()
@@ -169,10 +165,9 @@ async def get_tickets_with_clusters():
 
     cluster_map = {}
     for cluster in insights_cache["clusters"]:
-        for ticket in cluster.get("example_tickets", []):
+        for ticket in cluster.get("all_tickets", []):
             cluster_map[ticket["id"]] = {
                 "cluster_id": cluster["cluster_id"],
-                "workflow_type": cluster["workflow_type"],
                 "priority_level": cluster.get("priority_level"),
                 "impact_score": cluster["impact_score"],
                 "confidence_score": cluster.get("cluster_confidence_score"),
@@ -185,7 +180,6 @@ async def get_tickets_with_clusters():
             {
                 **ticket,
                 "cluster_id": cluster_info.get("cluster_id"),
-                "cluster_workflow": cluster_info.get("workflow_type"),
                 "cluster_priority": cluster_info.get("priority_level"),
                 "cluster_impact": cluster_info.get("impact_score"),
                 "cluster_confidence": cluster_info.get("confidence_score"),
@@ -250,7 +244,6 @@ async def check_duplicate(request: DuplicateCheckRequest):
     result = ai_processor.check_duplicate(
         title=request.title,
         description=request.description,
-        workflow_type=request.workflow_type,
         severity=request.severity,
         title_only=request.title_only,
     )
@@ -270,7 +263,6 @@ async def assign_to_cluster(request: ClusterAssignmentRequest):
     result = ai_processor.assign_to_cluster(
         title=request.title,
         description=request.description,
-        workflow_type=request.workflow_type,
         severity=request.severity,
     )
 
@@ -395,7 +387,6 @@ async def create_ticket(request: CreateTicketRequest):
         "id": ticket_id,
         "title": request.title,
         "description": request.description,
-        "workflow_type": request.workflow_type,
         "severity": request.severity,
         "category": request.category or "manual",
         "timestamp": datetime.now().isoformat(),
@@ -424,7 +415,7 @@ async def create_jira_draft(cluster_id: int):
     if cluster is None:
         raise HTTPException(status_code=404, detail=f"Cluster {cluster_id} not found")
 
-    summary = f"[OPS] {cluster['workflow_type']}: {cluster['summary'][:80]}..."
+    summary = f"[OPS] {cluster['summary'][:80]}..."
     priority = cluster.get("priority_level", "P3")
     impact_explanation = cluster.get(
         "business_impact", "Recurring operational pattern detected."
@@ -432,7 +423,6 @@ async def create_jira_draft(cluster_id: int):
     cluster_summary = cluster["summary"]
     example_tickets = cluster.get("example_tickets", [])
     recommended_action = cluster.get("recommended_action", "Investigate and remediate.")
-    owner_team = cluster.get("owner_team", "Platform Team")
     confidence = cluster.get("cluster_confidence_score", 0)
     top_keywords = cluster.get("top_keywords", [])
 
@@ -446,7 +436,6 @@ async def create_jira_draft(cluster_id: int):
             for t in example_tickets
         ],
         "recommended_action": recommended_action,
-        "owner_team": owner_team,
         "incident_count": cluster["incident_count"],
         "impact_score": cluster["impact_score"],
         "urgency_tag": cluster.get("urgency_tag", "elevated"),

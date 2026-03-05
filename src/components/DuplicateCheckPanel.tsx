@@ -10,7 +10,6 @@ interface TicketSuggestion {
   id: string;
   title: string;
   severity: string;
-  workflow_type: string;
 }
 
 export function DuplicateCheckPanel({ onClusterClick }: DuplicateCheckPanelProps) {

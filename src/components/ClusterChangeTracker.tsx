@@ -6,7 +6,6 @@ interface ClusterChangeTrackerProps {
   clusters: Array<{
     cluster_id: number;
     summary: string;
-    workflow_type: string;
     priority_level?: string;
   }>;
   onClusterClick?: (clusterId: number) => void;
@@ -134,7 +133,7 @@ export function ClusterChangeTracker({ clusterChanges, clusters, onClusterClick 
                     </div>
                     {clusterInfo && (
                       <p className="mt-0.5 truncate text-xs text-zinc-600">
-                        {clusterInfo.workflow_type} · {clusterInfo.priority_level}
+                        {clusterInfo.priority_level}
                       </p>
                     )}
                   </div>

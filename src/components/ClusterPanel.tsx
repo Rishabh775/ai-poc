@@ -11,6 +11,7 @@ import { Cluster } from "../services/api";
 
 interface ClusterPanelProps {
   clusters: Cluster[];
+  unclusteredTickets: any[];
   sortBy: "frequency" | "severity" | "impact" | "recurrence" | "priority";
   onDetails: (cluster: Cluster) => void;
   onCreateJira: (cluster: Cluster) => void;
@@ -88,6 +89,7 @@ function sortClusters(
 
 export function ClusterPanel({
   clusters,
+  unclusteredTickets,
   sortBy,
   onDetails,
   onCreateJira,
@@ -106,6 +108,36 @@ export function ClusterPanel({
           onCreateJira={onCreateJira}
         />
       ))}
+
+      {unclusteredTickets.length > 0 && (
+        <div className="rounded-lg border-2 border-dashed border-zinc-300 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-zinc-700">
+            Unassigned Tickets ({unclusteredTickets.length})
+          </h3>
+          <div className="space-y-2">
+            {unclusteredTickets.map((ticket: any) => (
+              <div
+                key={ticket.id}
+                className="flex items-start justify-between gap-3 rounded-lg bg-zinc-50 p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-xs text-zinc-500">{ticket.id}</p>
+                  <p className="mt-0.5 text-sm text-zinc-800 line-clamp-2">
+                    {ticket.title}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
+                    severityColors[ticket.severity] ?? severityColors.medium
+                  }`}
+                >
+                  {ticket.severity}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -147,10 +179,7 @@ function ClusterCard({
                   {cluster.priority_level || "P3"}
                 </span>
                 <span className="text-xs text-zinc-500">
-                  {cluster.owner_team || "Platform Team"}
-                </span>
-                <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
-                  {cluster.workflow_type.replace(/_/g, " ")}
+                  {cluster.incident_count} incidents
                 </span>
               </div>
               <h4 className="mt-2 font-semibold text-zinc-900">

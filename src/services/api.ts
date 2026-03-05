@@ -7,7 +7,6 @@ export interface Ticket {
   title: string;
   description: string;
   timestamp: string;
-  workflow_type: string;
   severity: string;
   category?: string;
 }
@@ -18,7 +17,6 @@ export interface Cluster {
   incident_count: number;
   impact_score: number;
   severity_distribution: Record<string, number>;
-  workflow_type: string;
   example_tickets: Array<{
     id: string;
     title: string;
@@ -36,7 +34,6 @@ export interface Cluster {
   last_seen: string;
   recommended_action?: string;
   priority_level?: string;
-  owner_team?: string;
   business_impact?: string;
   urgency_tag?: string;
   risk_score?: number;
@@ -89,7 +86,6 @@ export interface Trends {
     severity: string;
     count: number;
   }>;
-  workflow_distribution: Record<string, number>;
   trend_direction: string;
   recent_7d_count: number;
   previous_7d_count: number;
@@ -115,7 +111,6 @@ export interface JiraDraft {
       severity: string;
     }>;
     recommended_action: string;
-    owner_team: string;
     incident_count: number;
     impact_score: number;
     urgency_tag: string;
@@ -128,7 +123,6 @@ export interface JiraDraft {
 export interface DuplicateCheckRequest {
   title: string;
   description?: string;
-  workflow_type?: string;
   severity?: string;
   title_only?: boolean;
 }
@@ -149,14 +143,12 @@ export interface DuplicateCheckResponse {
 export interface ClusterAssignmentRequest {
   title: string;
   description: string;
-  workflow_type: string;
   severity: string;
 }
 
 export interface CreateTicketRequest {
   title: string;
   description: string;
-  workflow_type: string;
   severity: string;
   category?: string;
 }
@@ -185,7 +177,6 @@ export interface InsightsResponse {
 
 export interface TicketWithCluster extends Ticket {
   cluster_id: number | null;
-  cluster_workflow: string | null;
   cluster_priority: string | null;
   cluster_impact: number | null;
   cluster_confidence: number | null;
@@ -213,7 +204,7 @@ export const api = {
     return response.data;
   },
 
-  searchTickets: async (query: string): Promise<{tickets: Array<{id: string, title: string, severity: string, workflow_type: string}>, total: number}> => {
+  searchTickets: async (query: string): Promise<{tickets: Array<{id: string, title: string, severity: string}>, total: number}> => {
     const response = await axios.get(`${API_BASE_URL}/tickets/search`, { params: { q: query } });
     return response.data;
   },
