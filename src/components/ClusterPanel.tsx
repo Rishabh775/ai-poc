@@ -7,84 +7,16 @@ import {
   FileEdit,
   ExternalLink,
 } from "lucide-react";
-import { Cluster } from "../services/api";
+import { Cluster, UnclusteredTicket } from "../services/api";
+import { SEVERITY_COLORS, PRIORITY_STYLES } from "../constants/styles";
+import { sortClusters, SortOption } from "../utils/sorting";
 
 interface ClusterPanelProps {
   clusters: Cluster[];
-  unclusteredTickets: any[];
-  sortBy: "frequency" | "severity" | "impact" | "recurrence" | "priority";
+  unclusteredTickets: UnclusteredTicket[];
+  sortBy: SortOption;
   onDetails: (cluster: Cluster) => void;
   onCreateJira: (cluster: Cluster) => void;
-}
-
-const severityColors: Record<string, string> = {
-  critical: "bg-red-100 text-red-800",
-  high: "bg-orange-100 text-orange-800",
-  medium: "bg-amber-100 text-amber-800",
-  low: "bg-emerald-100 text-emerald-800",
-};
-
-const priorityStyles: Record<string, string> = {
-  P1: "bg-red-600 text-white",
-  P2: "bg-orange-600 text-white",
-  P3: "bg-amber-500 text-white",
-  P4: "bg-zinc-500 text-white",
-};
-
-function sortClusters(
-  clusters: Cluster[],
-  sortBy: ClusterPanelProps["sortBy"]
-): Cluster[] {
-  const sorted = [...clusters];
-  switch (sortBy) {
-    case "frequency":
-      sorted.sort((a, b) => b.incident_count - a.incident_count);
-      break;
-    case "severity": {
-      const sevOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      sorted.sort((a, b) => {
-        const aMax = Math.max(
-          ...Object.keys(a.severity_distribution || {}).map(
-            (s) => sevOrder[s as keyof typeof sevOrder] || 0
-          ),
-          0
-        );
-        const bMax = Math.max(
-          ...Object.keys(b.severity_distribution || {}).map(
-            (s) => sevOrder[s as keyof typeof sevOrder] || 0
-          ),
-          0
-        );
-        return bMax - aMax;
-      });
-      break;
-    }
-    case "impact":
-      sorted.sort((a, b) => b.impact_score - a.impact_score);
-      break;
-    case "recurrence": {
-      const recScore = (c: Cluster) =>
-        c.recurrence_signal === "recurring"
-          ? 3
-          : c.recurrence_signal === "spike"
-          ? 2
-          : 1;
-      sorted.sort((a, b) => recScore(b) - recScore(a));
-      break;
-    }
-    case "priority": {
-      const pOrder = { P1: 4, P2: 3, P3: 2, P4: 1 };
-      sorted.sort(
-        (a, b) =>
-          (pOrder[(b.priority_level || "P4") as keyof typeof pOrder] ?? 0) -
-          (pOrder[(a.priority_level || "P4") as keyof typeof pOrder] ?? 0)
-      );
-      break;
-    }
-    default:
-      break;
-  }
-  return sorted;
 }
 
 export function ClusterPanel({
@@ -102,8 +34,6 @@ export function ClusterPanel({
         <ClusterCard
           key={cluster.cluster_id}
           cluster={cluster}
-          severityColors={severityColors}
-          priorityStyles={priorityStyles}
           onDetails={onDetails}
           onCreateJira={onCreateJira}
         />
@@ -115,7 +45,7 @@ export function ClusterPanel({
             Unassigned Tickets ({unclusteredTickets.length})
           </h3>
           <div className="space-y-2">
-            {unclusteredTickets.map((ticket: any) => (
+            {unclusteredTickets.map((ticket: UnclusteredTicket) => (
               <div
                 key={ticket.id}
                 className="flex items-start justify-between gap-3 rounded-lg bg-zinc-50 p-3"
@@ -128,7 +58,9 @@ export function ClusterPanel({
                 </div>
                 <span
                   className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-                    severityColors[ticket.severity] ?? severityColors.medium
+                    SEVERITY_COLORS[
+                      ticket.severity as keyof typeof SEVERITY_COLORS
+                    ] ?? SEVERITY_COLORS.medium
                   }`}
                 >
                   {ticket.severity}
@@ -144,14 +76,10 @@ export function ClusterPanel({
 
 function ClusterCard({
   cluster,
-  severityColors,
-  priorityStyles,
   onDetails,
   onCreateJira,
 }: {
   cluster: Cluster;
-  severityColors: Record<string, string>;
-  priorityStyles: Record<string, string>;
   onDetails: (c: Cluster) => void;
   onCreateJira: (c: Cluster) => void;
 }) {
@@ -163,17 +91,16 @@ function ClusterCard({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex gap-4">
             <div className="rounded-lg bg-sky-100 p-2">
-              <AlertCircle
-                className="h-5 w-5 text-sky-600"
-                strokeWidth={2}
-              />
+              <AlertCircle className="h-5 w-5 text-sky-600" strokeWidth={2} />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`rounded px-2 py-0.5 text-xs font-semibold ${
-                    priorityStyles[cluster.priority_level || "P3"] ??
-                    priorityStyles.P3
+                    PRIORITY_STYLES[
+                      (cluster.priority_level ||
+                        "P3") as keyof typeof PRIORITY_STYLES
+                    ] ?? PRIORITY_STYLES.P3
                   }`}
                 >
                   {cluster.priority_level || "P3"}
@@ -197,7 +124,8 @@ function ClusterCard({
                 <span>{cluster.incident_count} incidents</span>
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
-                  {new Date(cluster.first_seen).toLocaleDateString()}–{new Date(cluster.last_seen).toLocaleDateString()}
+                  {new Date(cluster.first_seen).toLocaleDateString()}–
+                  {new Date(cluster.last_seen).toLocaleDateString()}
                 </span>
                 {cluster.risk_score != null && (
                   <span>Risk {cluster.risk_score}</span>
@@ -256,7 +184,9 @@ function ClusterCard({
                   </div>
                   <span
                     className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-                      severityColors[ticket.severity] ?? severityColors.medium
+                      SEVERITY_COLORS[
+                        ticket.severity as keyof typeof SEVERITY_COLORS
+                      ] ?? SEVERITY_COLORS.medium
                     }`}
                   >
                     {ticket.severity}

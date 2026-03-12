@@ -11,6 +11,13 @@ export interface Ticket {
   category?: string;
 }
 
+export interface UnclusteredTicket {
+  id: string;
+  title: string;
+  severity: string;
+  timestamp: string;
+}
+
 export interface Cluster {
   cluster_id: number;
   custom_name?: string;
@@ -132,12 +139,7 @@ export interface DuplicateCheckResponse {
   is_duplicate: boolean;
   confidence_score: number;
   matched_cluster_id: number | null;
-  similar_tickets: Array<{
-    id: string;
-    title: string;
-    severity: string;
-    timestamp: string;
-  }>;
+  similar_tickets: UnclusteredTicket[];
   message: string;
 }
 
@@ -171,12 +173,7 @@ export interface QualityMetrics {
 
 export interface InsightsResponse {
   clusters: Cluster[];
-  unclustered_tickets: Array<{
-    id: string;
-    title: string;
-    severity: string;
-    timestamp: string;
-  }>;
+  unclustered_tickets: UnclusteredTicket[];
   trends: Trends;
   change_tracking: ChangeTracking;
   metrics: Metrics;

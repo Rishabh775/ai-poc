@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { JiraDraft } from "../services/api";
+import { SEVERITY_COLORS } from "../constants/styles";
 
 interface JiraModalProps {
   draft: JiraDraft["draft"] | null;
@@ -57,7 +58,9 @@ export function JiraModal({ draft, onClose }: JiraModalProps) {
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                 Cluster summary
               </label>
-              <p className="mt-1 text-sm text-zinc-700">{draft.cluster_summary}</p>
+              <p className="mt-1 text-sm text-zinc-700">
+                {draft.cluster_summary}
+              </p>
             </div>
 
             <div>
@@ -81,16 +84,18 @@ export function JiraModal({ draft, onClose }: JiraModalProps) {
                   className="flex items-start justify-between gap-3 rounded-lg bg-zinc-50 p-3"
                 >
                   <div>
-                    <p className="font-mono text-xs text-zinc-500">{ticket.id}</p>
-                    <p className="mt-0.5 text-sm text-zinc-900">{ticket.title}</p>
+                    <p className="font-mono text-xs text-zinc-500">
+                      {ticket.id}
+                    </p>
+                    <p className="mt-0.5 text-sm text-zinc-900">
+                      {ticket.title}
+                    </p>
                   </div>
                   <span
                     className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-                      ticket.severity === "critical"
-                        ? "bg-red-100 text-red-800"
-                        : ticket.severity === "high"
-                        ? "bg-orange-100 text-orange-800"
-                        : "bg-amber-100 text-amber-800"
+                      SEVERITY_COLORS[
+                        ticket.severity as keyof typeof SEVERITY_COLORS
+                      ] ?? SEVERITY_COLORS.medium
                     }`}
                   >
                     {ticket.severity}

@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react";
 import { Cluster, api } from "../services/api";
+import { SEVERITY_COLORS, PRIORITY_STYLES } from "../constants/styles";
 
 interface ClusterDetailPanelProps {
   cluster: Cluster;
@@ -22,21 +23,13 @@ interface ClusterDetailPanelProps {
   onNameUpdate?: () => void;
 }
 
-const severityColors: Record<string, string> = {
-  critical: "bg-red-100 text-red-800",
-  high: "bg-orange-100 text-orange-800",
-  medium: "bg-amber-100 text-amber-800",
-  low: "bg-emerald-100 text-emerald-800",
-};
-
-const priorityStyles: Record<string, string> = {
-  P1: "bg-red-600 text-white",
-  P2: "bg-orange-600 text-white",
-  P3: "bg-amber-500 text-white",
-  P4: "bg-zinc-500 text-white",
-};
-
-export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onNameUpdate }: ClusterDetailPanelProps) {
+export function ClusterDetailPanel({
+  cluster,
+  allClusters,
+  onClose,
+  onMerge,
+  onNameUpdate,
+}: ClusterDetailPanelProps) {
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [clusterName, setClusterName] = useState(cluster.custom_name || "");
@@ -68,7 +61,10 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
               <button onClick={handleSaveName} className="text-green-600">
                 <Check className="h-4 w-4" />
               </button>
-              <button onClick={() => setIsEditingName(false)} className="text-zinc-500">
+              <button
+                onClick={() => setIsEditingName(false)}
+                className="text-zinc-500"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -98,7 +94,9 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
             </button>
             {showMergeDropdown && (
               <div className="absolute right-0 top-8 z-10 w-56 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
-                <p className="px-3 py-1 text-xs font-medium text-zinc-500">Merge into:</p>
+                <p className="px-3 py-1 text-xs font-medium text-zinc-500">
+                  Merge into:
+                </p>
                 {allClusters
                   .filter((c) => c.cluster_id !== cluster.cluster_id)
                   .map((c) => (
@@ -129,7 +127,8 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded px-2.5 py-1 text-sm font-semibold ${
-              priorityStyles[priority] ?? priorityStyles.P3
+              PRIORITY_STYLES[priority as keyof typeof PRIORITY_STYLES] ??
+              PRIORITY_STYLES.P3
             }`}
           >
             {priority}
@@ -171,7 +170,12 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
               Time span
             </p>
             <p className="mt-1 text-lg font-semibold text-zinc-900">
-              {Math.ceil((new Date(cluster.last_seen).getTime() - new Date(cluster.first_seen).getTime()) / (1000 * 60 * 60 * 24))} days
+              {Math.ceil(
+                (new Date(cluster.last_seen).getTime() -
+                  new Date(cluster.first_seen).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              )}{" "}
+              days
             </p>
           </div>
           {cluster.risk_score != null && (
@@ -184,7 +188,7 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
               </p>
             </div>
           )}
-          
+
           {cluster.cluster_confidence_score != null && (
             <div className="col-span-2 rounded-lg bg-amber-50 p-4 border border-amber-200">
               <div className="flex items-center justify-between">
@@ -192,17 +196,24 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
                   <Gauge className="mr-1 inline h-3 w-3" />
                   AI Confidence
                 </p>
-                <span className={`text-lg font-bold ${
-                  cluster.cluster_confidence_score >= 0.7 ? 'text-emerald-600' :
-                  cluster.cluster_confidence_score >= 0.4 ? 'text-amber-600' : 'text-red-600'
-                }`}>
+                <span
+                  className={`text-lg font-bold ${
+                    cluster.cluster_confidence_score >= 0.7
+                      ? "text-emerald-600"
+                      : cluster.cluster_confidence_score >= 0.4
+                        ? "text-amber-600"
+                        : "text-red-600"
+                  }`}
+                >
                   {Math.round(cluster.cluster_confidence_score * 100)}%
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-600">
-                {cluster.cluster_confidence_score >= 0.7 ? 'High confidence - tickets are well grouped' :
-                 cluster.cluster_confidence_score >= 0.4 ? 'Medium confidence - some variation in tickets' :
-                 'Low confidence - tickets may need reclassification'}
+                {cluster.cluster_confidence_score >= 0.7
+                  ? "High confidence - tickets are well grouped"
+                  : cluster.cluster_confidence_score >= 0.4
+                    ? "Medium confidence - some variation in tickets"
+                    : "Low confidence - tickets may need reclassification"}
               </p>
             </div>
           )}
@@ -233,7 +244,8 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
               <span
                 key={sev}
                 className={`rounded px-2 py-1 text-sm font-medium ${
-                  severityColors[sev] ?? severityColors.medium
+                  SEVERITY_COLORS[sev as keyof typeof SEVERITY_COLORS] ??
+                  SEVERITY_COLORS.medium
                 }`}
               >
                 {sev}: {count}
@@ -316,7 +328,9 @@ export function ClusterDetailPanel({ cluster, allClusters, onClose, onMerge, onN
                 </div>
                 <span
                   className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-                    severityColors[ticket.severity] ?? severityColors.medium
+                    SEVERITY_COLORS[
+                      ticket.severity as keyof typeof SEVERITY_COLORS
+                    ] ?? SEVERITY_COLORS.medium
                   }`}
                 >
                   {ticket.severity}

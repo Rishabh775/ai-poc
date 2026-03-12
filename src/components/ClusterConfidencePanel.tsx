@@ -1,6 +1,21 @@
 import { useState } from "react";
-import { Gauge, Info, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Gauge,
+  Info,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Cluster } from "../services/api";
+import {
+  getConfidenceBgColor,
+  getConfidenceTextColor,
+  confidenceLevelToBgColor,
+} from "../utils/formatting";
+import { CONFIDENCE_THRESHOLDS } from "../constants/confidence";
+import { sortClustersByConfidence } from "../utils/sorting";
 
 interface ClusterConfidencePanelProps {
   clusters: Cluster[];
@@ -8,48 +23,40 @@ interface ClusterConfidencePanelProps {
   onClusterClick?: (cluster: Cluster) => void;
 }
 
-export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterClick }: ClusterConfidencePanelProps) {
+export function ClusterConfidencePanel({
+  clusters,
+  averageConfidence,
+  onClusterClick,
+}: ClusterConfidencePanelProps) {
   const [showAll, setShowAll] = useState(false);
 
   const getConfidenceIcon = (score: number) => {
-    if (score >= 0.7) return <CheckCircle2 className="h-5 w-5 text-emerald-600" />;
-    if (score >= 0.4) return <AlertTriangle className="h-5 w-5 text-amber-600" />;
+    if (score >= CONFIDENCE_THRESHOLDS.HIGH)
+      return <CheckCircle2 className="h-5 w-5 text-emerald-600" />;
+    if (score >= CONFIDENCE_THRESHOLDS.MEDIUM)
+      return <AlertTriangle className="h-5 w-5 text-amber-600" />;
     return <XCircle className="h-5 w-5 text-red-600" />;
   };
 
-  const getConfidenceColor = (score: number) => {
-    if (score >= 0.7) return "bg-emerald-50 border-emerald-200";
-    if (score >= 0.4) return "bg-amber-50 border-amber-200";
-    return "bg-red-50 border-red-200";
-  };
+  const sortedByConfidence = sortClustersByConfidence(clusters);
 
-  const getConfidenceText = (score: number) => {
-    if (score >= 0.7) return "text-emerald-700";
-    if (score >= 0.4) return "text-amber-700";
-    return "text-red-700";
-  };
-
-  const getConfidenceLabel = (label: string | undefined) => {
-    switch (label) {
-      case "high": return "bg-emerald-100 text-emerald-700";
-      case "medium": return "bg-amber-100 text-amber-700";
-      case "low": return "bg-red-100 text-red-700";
-      default: return "bg-zinc-100 text-zinc-600";
-    }
-  };
-
-  const sortedByConfidence = [...clusters].sort(
-    (a, b) => (b.cluster_confidence_score || 0) - (a.cluster_confidence_score || 0)
-  );
-
-  const highConfidence = clusters.filter(c => (c.cluster_confidence_score || 0) >= 0.7).length;
-  const mediumConfidence = clusters.filter(c => {
+  const highConfidence = clusters.filter(
+    (c) => (c.cluster_confidence_score || 0) >= CONFIDENCE_THRESHOLDS.HIGH,
+  ).length;
+  const mediumConfidence = clusters.filter((c) => {
     const score = c.cluster_confidence_score || 0;
-    return score >= 0.4 && score < 0.7;
+    return (
+      score >= CONFIDENCE_THRESHOLDS.MEDIUM &&
+      score < CONFIDENCE_THRESHOLDS.HIGH
+    );
   }).length;
-  const lowConfidence = clusters.filter(c => (c.cluster_confidence_score || 0) < 0.4).length;
+  const lowConfidence = clusters.filter(
+    (c) => (c.cluster_confidence_score || 0) < CONFIDENCE_THRESHOLDS.MEDIUM,
+  ).length;
 
-  const displayedClusters = showAll ? sortedByConfidence : sortedByConfidence.slice(0, 5);
+  const displayedClusters = showAll
+    ? sortedByConfidence
+    : sortedByConfidence.slice(0, 5);
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white shadow-card">
@@ -98,19 +105,24 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
           <p className="text-xs text-blue-700">
-            Confidence measures how well tickets within a cluster are related to each other 
-            vs. tickets in other clusters. Higher confidence = better semantic grouping.
+            Confidence measures how well tickets within a cluster are related to
+            each other vs. tickets in other clusters. Higher confidence = better
+            semantic grouping.
           </p>
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-zinc-700">Cluster Confidence Scores</h3>
+          <h3 className="text-sm font-medium text-zinc-700">
+            Cluster Confidence Scores
+          </h3>
           {displayedClusters.map((cluster) => (
             <div
               key={cluster.cluster_id}
               className={`flex items-center gap-3 rounded-lg border p-3 ${
-                onClusterClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""
-              } ${getConfidenceColor(cluster.cluster_confidence_score || 0)}`}
+                onClusterClick
+                  ? "cursor-pointer hover:shadow-md transition-shadow"
+                  : ""
+              } ${getConfidenceBgColor(cluster.cluster_confidence_score || 0)}`}
               onClick={() => onClusterClick?.(cluster)}
             >
               {getConfidenceIcon(cluster.cluster_confidence_score || 0)}
@@ -119,7 +131,9 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
                   <span className="font-medium text-zinc-900">
                     Cluster #{cluster.cluster_id}
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getConfidenceLabel(cluster.confidence_label)}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${confidenceLevelToBgColor(cluster.confidence_label)}`}
+                  >
                     {cluster.confidence_label || "unknown"}
                   </span>
                 </div>
@@ -128,7 +142,9 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
                 </p>
               </div>
               <div className="text-right">
-                <span className={`text-lg font-bold ${getConfidenceText(cluster.cluster_confidence_score || 0)}`}>
+                <span
+                  className={`text-lg font-bold ${getConfidenceTextColor(cluster.cluster_confidence_score || 0)}`}
+                >
                   {Math.round((cluster.cluster_confidence_score || 0) * 100)}%
                 </span>
               </div>
