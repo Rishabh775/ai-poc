@@ -3,11 +3,12 @@ Embeds tickets, clusters similar issues, detects trends, and generates actionabl
 
 Features:
 - Semantic duplicate detection with configurable threshold
-- Hybrid clustering (semantic embeddings + metadata)
+- Hybrid clustering (semantic embeddings + metadata: category + severity)
 - Dynamic cluster assignment for new tickets
-- Cluster confidence scoring
+- Cluster confidence scoring with silhouette analysis
 - Improved text normalization for better embedding quality
-- Domain stopword stripping to prevent false cross-cluster merges
+- Category-aware clustering when metadata available
+- HDBSCAN support for better clustering on small datasets
 """
 
 import re
@@ -15,47 +16,186 @@ import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.metrics import silhouette_samples
 from typing import List, Dict, Any, Tuple, Optional
 from collections import Counter
 from datetime import datetime, timedelta
 
+try:
+    import hdbscan
+
+    HDBSCAN_AVAILABLE = True
+except ImportError:
+    HDBSCAN_AVAILABLE = False
+
 import config
+import category_classifier
+import ground_truth
+
+
+STOP_WORDS = {
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "can",
+    "need",
+    "dare",
+    "ought",
+    "used",
+    "from",
+    "up",
+    "out",
+    "about",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "between",
+    "under",
+    "again",
+    "further",
+    "then",
+    "once",
+    "here",
+    "there",
+    "when",
+    "where",
+    "why",
+    "how",
+    "all",
+    "each",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "no",
+    "nor",
+    "not",
+    "only",
+    "own",
+    "same",
+    "so",
+    "than",
+    "too",
+    "very",
+    "just",
+    "now",
+    "this",
+    "that",
+    "these",
+    "those",
+    "it",
+    "its",
+    "we",
+    "our",
+    "they",
+    "their",
+    "them",
+    "you",
+    "your",
+    "he",
+    "she",
+    "him",
+    "her",
+    "his",
+    "i",
+    "me",
+    "my",
+    "which",
+    "what",
+    "who",
+    "whom",
+    "whose",
+}
 
 
 class OperationalAIProcessor:
     """AI-powered ticket clustering and analysis processor."""
 
-    # Words that appear across ALL tickets in this system and add no cluster signal.
-    # Kept minimal and surgical — only strip truly universal noise.
-    # DO NOT add discriminative words like: upload, session, email, autosave,
-    # comment, recommendation, permission, status, performance, validation, access.
-    # Those are the actual cluster signals and must be preserved.
     DOMAIN_NOISE_WORDS = [
-        # Platform/entity noise — appear in every ticket
-        "manuscript", "submission", "submissions",
-        "reviewer", "reviewers", "editor", "editors",
-        "portal", "system", "users", "user",
-        "authors", "author", "jmed",
-        # UI interaction noise — appear in every ticket
-        "clicking", "click", "button", "page",
-        "field", "fields", "form", "forms",
-        # Cross-cluster bridge words — cause false merges
-        "decision", "notification",
+        "clicking",
+        "click",
+        "button",
     ]
 
+    DOMAIN_SYNONYMS = {
+        "cannot": "can't",
+        "does not": "doesn't",
+        "is not": "isn't",
+        "are not": "aren't",
+        "will not": "won't",
+        "not working": "broken",
+        "not loading": "broken",
+        "failing": "broken",
+        "fails": "broken",
+        "error": "broken",
+        "timeout": "timeout",
+        "time out": "timeout",
+    }
+
+    CATEGORY_SIMILARITY_BOOST = {
+        ("Review Comments", "Review Recommendation"): 0.15,
+        ("File handling", "Draft management"): 0.10,
+        ("Session management", "Access control"): 0.12,
+        ("Email service", "Status tracking"): 0.08,
+        ("Performance", "Data integrity"): 0.10,
+    }
+
     def __init__(self):
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.model = SentenceTransformer(config.EMBEDDING_MODEL)
         self.embeddings: Optional[np.ndarray] = None
+        self.hybrid_features: Optional[np.ndarray] = None
         self.tickets_df: Optional[pd.DataFrame] = None
         self.cluster_centroids: Dict[int, np.ndarray] = {}
         self.cluster_info: Dict[int, Dict] = {}
+        self.category_encoder: Optional[OneHotEncoder] = None
+        self.severity_encoder: Optional[StandardScaler] = None
+        self.scaler: Optional[StandardScaler] = None
 
     def normalize_ticket_text(self, title: str, description: str, severity: str) -> str:
         """Create enriched combined text with normalization.
 
         Normalization steps:
         - lowercase
+        - normalize synonyms (e.g., "cannot" -> "can't")
         - strip domain noise words (universal across all tickets, cause false merges)
         - remove emails
         - remove IDs (manuscript IDs, ticket IDs)
@@ -67,6 +207,9 @@ class OperationalAIProcessor:
         """
         combined = f"{title}. {description}"
         combined = combined.lower()
+
+        for src, tgt in self.DOMAIN_SYNONYMS.items():
+            combined = combined.replace(src, tgt)
 
         for word in self.DOMAIN_NOISE_WORDS:
             combined = re.sub(rf"\b{word}\b", "", combined)
@@ -120,17 +263,45 @@ class OperationalAIProcessor:
         return similarities
 
     def process_tickets(self, tickets: List[Dict]) -> Dict:
-        """Main processing pipeline: embed, cluster, enrich, and compute change tracking."""
+        """Main processing pipeline: classify, embed, cluster, enrich, and compute change tracking."""
+        if not tickets:
+            return {
+                "clusters": [],
+                "unclustered_tickets": [],
+                "trends": {
+                    "daily_incidents": [],
+                    "severity_over_time": [],
+                    "trend_direction": "stable",
+                },
+                "change_tracking": {
+                    "trend_direction": "stable",
+                    "delta_percent": 0,
+                    "cluster_changes": [],
+                },
+                "metrics": {"total_incidents": 0, "risk_score": 0},
+                "total_tickets": 0,
+                "config": config.get_config(),
+            }
+
+        if "category" not in tickets[0]:
+            tickets = category_classifier.enrich_tickets_with_categories(
+                tickets, model=self.model
+            )
+
         self.tickets_df = pd.DataFrame(tickets)
         self.tickets_df["timestamp"] = pd.to_datetime(self.tickets_df["timestamp"])
 
         normalized_texts = [
             self.normalize_ticket_text(
-                row["title"], row["description"], row["severity"]
+                str(row["title"]), str(row["description"]), str(row["severity"])
             )
             for _, row in self.tickets_df.iterrows()
         ]
-        self.embeddings = self.model.encode(normalized_texts, show_progress_bar=False)
+        self.embeddings = np.array(
+            self.model.encode(normalized_texts, show_progress_bar=False)
+        )
+
+        self._build_hybrid_features()
 
         clusters, unclustered_tickets = self._cluster_issues_hybrid()
         clusters = self._compute_cluster_confidence(clusters)
@@ -141,32 +312,100 @@ class OperationalAIProcessor:
         change_tracking = self._compute_per_cluster_changes(change_tracking)
         metrics = self._calculate_metrics(clusters, change_tracking)
 
+        quality_metrics = self._compute_quality_metrics(clusters, unclustered_tickets)
+
         return {
             "clusters": clusters,
             "unclustered_tickets": unclustered_tickets,
             "trends": trends,
             "change_tracking": change_tracking,
             "metrics": metrics,
+            "quality": quality_metrics,
             "total_tickets": len(tickets),
             "config": config.get_config(),
         }
 
+    def _build_hybrid_features(self):
+        """Build hybrid feature vector combining text embeddings with metadata."""
+        text_weight = config.HYBRID_WEIGHT_TEXT
+        category_weight = config.HYBRID_WEIGHT_CATEGORY
+        severity_weight = config.HYBRID_WEIGHT_SEVERITY
+
+        text_features = self.embeddings * text_weight
+
+        has_category = "category" in self.tickets_df.columns
+        has_severity = "severity" in self.tickets_df.columns
+
+        metadata_features = np.zeros((len(self.tickets_df), 0))
+
+        if has_category and category_weight > 0:
+            categories = (
+                self.tickets_df["category"].fillna("unknown").values.reshape(-1, 1)
+            )
+            self.category_encoder = OneHotEncoder(
+                sparse_output=False, handle_unknown="ignore"
+            )
+            category_encoded = self.category_encoder.fit_transform(categories)
+            category_scaled = category_encoded * category_weight
+            metadata_features = np.hstack([metadata_features, category_scaled])
+
+        if has_severity and severity_weight > 0:
+            severities = (
+                self.tickets_df["severity"].fillna("medium").values.reshape(-1, 1)
+            )
+            severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+            severity_numeric = np.array(
+                [severity_order.get(s.lower(), 2) for s in severities.flatten()]
+            ).reshape(-1, 1)
+            self.severity_encoder = StandardScaler()
+            severity_scaled = (
+                self.severity_encoder.fit_transform(severity_numeric) * severity_weight
+            )
+            metadata_features = np.hstack([metadata_features, severity_scaled])
+
+        if metadata_features.shape[1] > 0:
+            self.hybrid_features = np.hstack([text_features, metadata_features])
+        else:
+            self.hybrid_features = text_features
+
     def _cluster_issues_hybrid(self) -> List[Dict]:
-        """Cluster using semantic embeddings (text only)."""
-        clustering = DBSCAN(
-            eps=config.DBSCAN_EPS, min_samples=config.MIN_SAMPLES, metric="cosine"
+        """Cluster using hybrid features (text + metadata)."""
+        features_to_use = (
+            self.hybrid_features
+            if self.hybrid_features is not None
+            else self.embeddings
         )
-        labels = clustering.fit_predict(self.embeddings)
+
+        if config.USE_HDBSCAN and HDBSCAN_AVAILABLE:
+            norms = np.linalg.norm(features_to_use, axis=1, keepdims=True)
+            norms[norms == 0] = 1
+            normalized_features = features_to_use / norms
+            clustering = hdbscan.HDBSCAN(
+                min_cluster_size=config.HDBSCAN_MIN_CLUSTER_SIZE,
+                min_samples=config.HDBSCAN_MIN_SAMPLES,
+                metric="euclidean",
+                cluster_selection_method="eom",
+                cluster_selection_epsilon=config.HDBSCAN_CLUSTER_SELECTION_EPSILON,
+                prediction_data=True,
+            )
+            labels = clustering.fit_predict(normalized_features)
+        else:
+            clustering = DBSCAN(
+                eps=config.DBSCAN_EPS, min_samples=config.MIN_SAMPLES, metric="cosine"
+            )
+            labels = clustering.fit_predict(features_to_use)
         self.tickets_df["cluster"] = labels
 
-        # --- Diagnostic: nearest-neighbor distances per ticket ---
-        # Uncomment during tuning to inspect EPS calibration.
-        # from sklearn.metrics.pairwise import cosine_distances
-        # dist_matrix = cosine_distances(self.embeddings)
-        # for i, row in enumerate(dist_matrix):
-        #     sorted_dists = sorted(row)
-        #     nearest = sorted_dists[1]  # skip self (distance=0)
-        #     print(f"{self.tickets_df.iloc[i]['id']:10s}  nearest_neighbor_dist={nearest:.3f}")
+        if len(set(labels)) > 1:
+            try:
+                silhouette_vals = silhouette_samples(
+                    features_to_use, labels, metric="cosine"
+                )
+                self.tickets_df["silhouette_score"] = silhouette_vals
+            except ValueError:
+                self.tickets_df["silhouette_score"] = 0.0
+        else:
+            self.tickets_df["silhouette_score"] = 0.0
 
         clusters = []
         unique_labels = set(labels)
@@ -199,12 +438,19 @@ class OperationalAIProcessor:
             top_keywords = self._extract_top_keywords(cluster_tickets)
             representative_ticket = example_tickets[0] if example_tickets else None
 
+            category_dist = {}
+            if "category" in cluster_tickets.columns:
+                category_dist = cluster_tickets["category"].value_counts().to_dict()
+
+            avg_silhouette = cluster_tickets["silhouette_score"].mean()
+
             clusters.append(
                 {
                     "cluster_id": int(label),
                     "incident_count": len(cluster_tickets),
                     "impact_score": round(impact_score, 2),
                     "severity_distribution": severity_counts,
+                    "category_distribution": category_dist,
                     "example_tickets": example_tickets,
                     "all_tickets": all_tickets,
                     "summary": summary,
@@ -213,6 +459,7 @@ class OperationalAIProcessor:
                     "top_keywords": top_keywords,
                     "representative_ticket": representative_ticket,
                     "semantic_cohesion_score": 0.0,
+                    "avg_silhouette_score": round(avg_silhouette, 3),
                 }
             )
 
@@ -229,6 +476,12 @@ class OperationalAIProcessor:
 
     def _compute_cluster_confidence(self, clusters: List[Dict]) -> List[Dict]:
         """Compute confidence score for each cluster based on intra/inter-cluster similarity."""
+        features_to_use = (
+            self.hybrid_features
+            if self.hybrid_features is not None
+            else self.embeddings
+        )
+
         for cluster in clusters:
             cluster_id = cluster["cluster_id"]
             cluster_mask = self.tickets_df["cluster"] == cluster_id
@@ -239,13 +492,13 @@ class OperationalAIProcessor:
                 cluster["semantic_cohesion_score"] = 0.5
                 continue
 
-            cluster_embeddings = self.embeddings[cluster_indices]
+            cluster_features = features_to_use[cluster_indices]
 
             intra_similarities = []
-            for i in range(len(cluster_embeddings)):
-                for j in range(i + 1, len(cluster_embeddings)):
+            for i in range(len(cluster_features)):
+                for j in range(i + 1, len(cluster_features)):
                     sim = self.cosine_similarity(
-                        cluster_embeddings[i], cluster_embeddings[j]
+                        cluster_features[i], cluster_features[j]
                     )
                     intra_similarities.append(sim)
 
@@ -267,7 +520,7 @@ class OperationalAIProcessor:
                 for ci in cluster_indices[:10]:
                     for oi in sampled_others:
                         sim = self.cosine_similarity(
-                            self.embeddings[ci], self.embeddings[oi]
+                            features_to_use[ci], features_to_use[oi]
                         )
                         inter_similarities.append(sim)
 
@@ -278,7 +531,10 @@ class OperationalAIProcessor:
             confidence = (avg_intra - avg_inter + 1.0) / 2.0
             confidence = max(0.0, min(1.0, confidence))
 
-            cluster["cluster_confidence_score"] = round(confidence, 3)
+            silhouette = cluster.get("avg_silhouette_score", 0)
+            combined_confidence = confidence * 0.6 + (silhouette + 1) / 2 * 0.4
+
+            cluster["cluster_confidence_score"] = round(combined_confidence, 3)
             cluster["semantic_cohesion_score"] = round(avg_intra, 3)
 
         return clusters
@@ -342,7 +598,9 @@ class OperationalAIProcessor:
         else:
             normalized_text = self.normalize_ticket_text(title, description, severity)
 
-        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[0]
+        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[
+            0
+        ]
 
         similarities = self.compute_similarities(query_embedding, self.embeddings)
         best_match_idx = np.argmax(similarities)
@@ -390,7 +648,9 @@ class OperationalAIProcessor:
             }
 
         normalized_text = self.normalize_ticket_text(title, description, severity)
-        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[0]
+        query_embedding = self.model.encode([normalized_text], show_progress_bar=False)[
+            0
+        ]
 
         best_cluster_id = -1
         best_similarity = 0.0
@@ -425,11 +685,9 @@ class OperationalAIProcessor:
             confidence = c.get("cluster_confidence_score", 0.5)
 
             summary = c.get("summary", "")
-
-            if summary:
-                c["recommended_action"] = summary
-            else:
-                c["recommended_action"] = "Investigate root cause and implement fix"
+            first_seen = pd.Timestamp(c["first_seen"])
+            last_seen = pd.Timestamp(c["last_seen"])
+            time_span = (last_seen - first_seen).days
 
             risk_score = min(
                 (
@@ -441,9 +699,6 @@ class OperationalAIProcessor:
             )
             c["risk_score"] = round(risk_score, 1)
 
-            time_span = (
-                pd.Timestamp(c["last_seen"]) - pd.Timestamp(c["first_seen"])
-            ).days
             recurrence_signal = (
                 "recurring"
                 if time_span >= 7 and incident_count >= 3
@@ -452,6 +707,35 @@ class OperationalAIProcessor:
                 else "intermittent"
             )
             c["recurrence_signal"] = recurrence_signal
+
+            # Generate context-specific recommended action
+            critical_count = severity_counts.get("critical", 0)
+            high_count = severity_counts.get("high", 0)
+
+            if recurrence_signal == "recurring" and critical_count >= 2:
+                c["recommended_action"] = (
+                    f"Critical recurring pattern detected. Immediately investigate root cause and implement permanent fix. Current rate: {incident_count} incidents over {time_span} days."
+                )
+            elif recurrence_signal == "spike" and critical_count >= 1:
+                c["recommended_action"] = (
+                    f"Urgent spike in critical incidents. Establish incident response team and deploy hotfix. {incident_count} incidents detected."
+                )
+            elif time_span <= 1 and incident_count >= 3:
+                c["recommended_action"] = (
+                    f"High-frequency spike detected. Enable detailed logging and monitoring. Escalate to on-call team immediately."
+                )
+            elif high_count >= 3 or (impact >= 50):
+                c["recommended_action"] = (
+                    f"High-impact cluster requiring prompt attention. Review recent deployments and configuration changes. Schedule emergency review meeting."
+                )
+            elif recurrence_signal == "recurring":
+                c["recommended_action"] = (
+                    f"Establish preventive monitoring for this recurring pattern. Document workflow and implement safeguards to reduce incident frequency."
+                )
+            else:
+                c["recommended_action"] = (
+                    "Investigate and implement targeted fix to prevent future occurrences."
+                )
 
             if impact >= 50 or severity_counts.get("critical", 0) >= 2:
                 priority_level = "P1"
@@ -525,20 +809,8 @@ class OperationalAIProcessor:
 
     def _extract_common_terms(self, cluster_tickets: pd.DataFrame) -> List[str]:
         """Extract most common terms from cluster tickets."""
-        stop = {
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-            "of", "with", "by", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "shall", "can", "need", "dare",
-            "ought", "used", "to", "from", "up", "out", "about", "into", "through",
-            "during", "before", "after", "above", "below", "between", "under",
-            "again", "further", "then", "once", "here", "there", "when", "where",
-            "why", "how", "all", "each", "few", "more", "most", "other", "some",
-            "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too",
-            "very", "just", "now",
-        }
         all_titles = " ".join(cluster_tickets["title"].tolist()).lower()
-        words = [w for w in all_titles.split() if w not in stop and len(w) > 3]
+        words = [w for w in all_titles.split() if w not in STOP_WORDS and len(w) > 3]
         common = Counter(words).most_common(5)
         return [w for w, cnt in common if cnt > 1]
 
@@ -548,22 +820,9 @@ class OperationalAIProcessor:
             cluster_tickets["title"].tolist() + cluster_tickets["description"].tolist()
         ).lower()
 
-        stop = {
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-            "of", "with", "by", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "shall", "can", "need", "dare",
-            "ought", "used", "from", "up", "out", "about", "into", "through",
-            "during", "before", "after", "above", "below", "between", "under",
-            "again", "further", "then", "once", "here", "there", "when", "where",
-            "why", "how", "all", "each", "few", "more", "most", "other", "some",
-            "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too",
-            "very", "just", "now", "this", "that", "these", "those", "it", "its",
-            "we", "our", "they", "their", "them", "you", "your", "he", "she", "him",
-            "her", "his", "i", "me", "my", "which", "what", "who", "whom", "whose",
-        }
-
-        words = [w for w in re.findall(r"\b[a-z]{4,}\b", all_text) if w not in stop]
+        words = [
+            w for w in re.findall(r"\b[a-z]{4,}\b", all_text) if w not in STOP_WORDS
+        ]
         common = Counter(words).most_common(8)
         return [w for w, _ in common[:8]]
 
@@ -719,9 +978,16 @@ class OperationalAIProcessor:
             else 0
         )
 
+        top_recommended_action = (
+            top_cluster.get("recommended_action", "Investigate and implement fix")
+            if top_cluster
+            else "No patterns to act on"
+        )
+
         return {
             "total_incidents": total,
             "top_issue": top_issue,
+            "top_recommended_action": top_recommended_action,
             "risk_score": round(risk_score, 1),
             "stability_index": change_tracking.get("stability_index", 50),
             "trend_direction": change_tracking.get("trend_direction", "stable"),
@@ -731,3 +997,93 @@ class OperationalAIProcessor:
             "cluster_count": len(clusters),
             "average_cluster_confidence": round(avg_confidence, 3),
         }
+
+    def _compute_quality_metrics(
+        self, clusters: List[Dict], unclustered_tickets: List[Dict]
+    ) -> Dict:
+        """Compute clustering quality metrics: silhouette score and confusion matrix."""
+        from sklearn.metrics import silhouette_score
+
+        ticket_to_cluster = {}
+        for cluster in clusters:
+            for t in cluster.get("all_tickets", []):
+                ticket_to_cluster[t["id"]] = cluster["cluster_id"]
+        for t in unclustered_tickets:
+            ticket_to_cluster[t["id"]] = -1
+
+        true_labels = []
+        predicted_labels = []
+        valid_indices = []
+
+        for idx, row in self.tickets_df.iterrows():
+            ticket_id = row.get("id", "")
+            true_cat = ground_truth.get_category(ticket_id)
+            if true_cat != "unknown":
+                true_labels.append(true_cat)
+                predicted_labels.append(ticket_to_cluster.get(ticket_id, -1))
+                valid_indices.append(idx)
+
+        silhouette = None
+        if len(set(predicted_labels)) > 1 and len(valid_indices) > 1:
+            try:
+                features = (
+                    self.hybrid_features[valid_indices]
+                    if self.hybrid_features is not None
+                    else self.embeddings[valid_indices]
+                )
+                silhouette = silhouette_score(
+                    features, predicted_labels, metric="cosine"
+                )
+            except ValueError:
+                silhouette = None
+
+        confusion_matrix = {}
+        all_categories = ground_truth.get_all_categories()
+
+        for cat in all_categories:
+            confusion_matrix[cat] = {}
+
+        for i, row in self.tickets_df.iterrows():
+            ticket_id = row.get("id", "")
+            true_cat = ground_truth.get_category(ticket_id)
+            if true_cat == "unknown":
+                continue
+
+            cluster_id = ticket_to_cluster.get(ticket_id, -1)
+            cluster_key = f"Cluster {cluster_id}" if cluster_id != -1 else "Unclustered"
+
+            if cluster_key not in confusion_matrix[true_cat]:
+                confusion_matrix[true_cat][cluster_key] = 0
+            confusion_matrix[true_cat][cluster_key] += 1
+
+        cluster_ids = [f"Cluster {c['cluster_id']}" for c in clusters]
+        cluster_ids.append("Unclustered")
+
+        used_clusters = set()
+        for row in confusion_matrix.values():
+            used_clusters.update(row.keys())
+        cluster_ids = [c for c in cluster_ids if c in used_clusters]
+
+        return {
+            "silhouette_score": round(silhouette, 3)
+            if silhouette is not None
+            else None,
+            "silhouette_interpretation": self._interpret_silhouette(silhouette),
+            "confusion_matrix": confusion_matrix,
+            "cluster_labels": cluster_ids,
+            "ground_truth_categories": all_categories,
+        }
+
+    def _interpret_silhouette(self, score: float) -> str:
+        """Provide human-readable interpretation of silhouette score."""
+        if score is None:
+            return "Insufficient data"
+        if score >= 0.7:
+            return "Strong cluster structure"
+        if score >= 0.5:
+            return "Reasonable cluster structure"
+        if score >= 0.25:
+            return "Weak cluster structure"
+        if score >= 0:
+            return "No substantial structure"
+        return "Artificial clustering"

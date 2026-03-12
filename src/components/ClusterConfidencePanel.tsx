@@ -1,4 +1,5 @@
-import { Gauge, Info, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { useState } from "react";
+import { Gauge, Info, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Cluster } from "../services/api";
 
 interface ClusterConfidencePanelProps {
@@ -8,6 +9,8 @@ interface ClusterConfidencePanelProps {
 }
 
 export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterClick }: ClusterConfidencePanelProps) {
+  const [showAll, setShowAll] = useState(false);
+
   const getConfidenceIcon = (score: number) => {
     if (score >= 0.7) return <CheckCircle2 className="h-5 w-5 text-emerald-600" />;
     if (score >= 0.4) return <AlertTriangle className="h-5 w-5 text-amber-600" />;
@@ -45,6 +48,8 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
     return score >= 0.4 && score < 0.7;
   }).length;
   const lowConfidence = clusters.filter(c => (c.cluster_confidence_score || 0) < 0.4).length;
+
+  const displayedClusters = showAll ? sortedByConfidence : sortedByConfidence.slice(0, 5);
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white shadow-card">
@@ -100,7 +105,7 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
 
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-zinc-700">Cluster Confidence Scores</h3>
-          {sortedByConfidence.slice(0, 5).map((cluster) => (
+          {displayedClusters.map((cluster) => (
             <div
               key={cluster.cluster_id}
               className={`flex items-center gap-3 rounded-lg border p-3 ${
@@ -132,9 +137,22 @@ export function ClusterConfidencePanel({ clusters, averageConfidence, onClusterC
         </div>
 
         {clusters.length > 5 && (
-          <p className="mt-3 text-center text-xs text-zinc-500">
-            + {clusters.length - 5} more clusters
-          </p>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Show all {clusters.length} clusters
+              </>
+            )}
+          </button>
         )}
       </div>
     </div>

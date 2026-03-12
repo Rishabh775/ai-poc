@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown, Minus, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { TrendingUp, TrendingDown, Minus, AlertCircle, CheckCircle2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { ClusterChange } from "../services/api";
 
 interface ClusterChangeTrackerProps {
@@ -12,6 +13,8 @@ interface ClusterChangeTrackerProps {
 }
 
 export function ClusterChangeTracker({ clusterChanges, clusters, onClusterClick }: ClusterChangeTrackerProps) {
+  const [showAll, setShowAll] = useState(false);
+
   const getTrendIcon = (trend: string) => {
     switch (trend) {
       case "new":
@@ -70,6 +73,8 @@ export function ClusterChangeTracker({ clusterChanges, clusters, onClusterClick 
   const increasingClusters = clusterChanges.filter(c => c.trend === "increasing");
   const decreasingClusters = clusterChanges.filter(c => c.trend === "decreasing");
 
+  const displayedChanges = showAll ? sortedChanges : sortedChanges.slice(0, 6);
+
   return (
     <div className="rounded-xl border border-zinc-200 bg-white shadow-card">
       <div className="border-b border-zinc-100 px-5 py-4">
@@ -111,7 +116,7 @@ export function ClusterChangeTracker({ clusterChanges, clusters, onClusterClick 
           </div>
         ) : (
           <div className="space-y-2">
-            {sortedChanges.slice(0, 6).map((change) => {
+            {displayedChanges.map((change) => {
               const clusterInfo = getClusterInfo(change.cluster_id);
               return (
                 <div
@@ -152,9 +157,22 @@ export function ClusterChangeTracker({ clusterChanges, clusters, onClusterClick 
         )}
 
         {clusterChanges.length > 6 && (
-          <p className="mt-3 text-center text-xs text-zinc-500">
-            + {clusterChanges.length - 6} more clusters
-          </p>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Show all {clusterChanges.length} clusters
+              </>
+            )}
+          </button>
         )}
       </div>
     </div>

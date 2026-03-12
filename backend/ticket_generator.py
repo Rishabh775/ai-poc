@@ -15,7 +15,6 @@ class TicketGenerator:
             "title": "Comments not saving in second review round",
             "description": "Reviewer typed extensive comments for the author in R2 but after clicking Submit the fields cleared and nothing was recorded. Affects manuscript JMED-D-25-00789.",
             "severity": "medium",
-            "category": "Review Comments",
             "timestamp": "2025-06-01T09:15:00",
         },
         {
@@ -23,7 +22,6 @@ class TicketGenerator:
             "title": "Review comment box loses text on scroll",
             "description": "When the reviewer scrolls down after typing comments, the text in the comment box disappears. Reproducible on Chrome and Firefox. Manuscript JMED-D-25-00534.",
             "severity": "medium",
-            "category": "Review Comments",
             "timestamp": "2025-06-02T11:30:00",
         },
         {
@@ -31,7 +29,6 @@ class TicketGenerator:
             "title": "Confidential editor comments not persisting",
             "description": "Editor-only comments entered in the confidential section are lost after saving. The reviewer-facing comments save correctly but the confidential field resets to empty.",
             "severity": "high",
-            "category": "Review Comments",
             "timestamp": "2025-06-03T14:00:00",
         },
         {
@@ -39,7 +36,6 @@ class TicketGenerator:
             "title": "Recommendation dropdown resets after page refresh",
             "description": "After selecting 'Major Revision' and saving, refreshing the page shows the recommendation as blank. The selection is not being persisted to the database.",
             "severity": "medium",
-            "category": "Review Recommendation",
             "timestamp": "2025-06-01T10:00:00",
         },
         {
@@ -47,7 +43,6 @@ class TicketGenerator:
             "title": "Cannot submit final decision on revised manuscript",
             "description": "Handling editor selects 'Accept' for a revised submission but the system does not advance the workflow. The decision appears to save but the manuscript status remains as 'Under Review'.",
             "severity": "high",
-            "category": "Review Recommendation",
             "timestamp": "2025-06-04T09:45:00",
         },
         {
@@ -55,7 +50,6 @@ class TicketGenerator:
             "title": "Reviewer recommendation not visible to handling editor",
             "description": "After reviewer submits a 'Reject' recommendation, the editor's dashboard still shows the recommendation field as pending. The reviewer's submission confirmation was received.",
             "severity": "medium",
-            "category": "Review Recommendation",
             "timestamp": "2025-06-05T13:00:00",
         },
         {
@@ -63,7 +57,6 @@ class TicketGenerator:
             "title": "PDF upload silently fails above 8MB",
             "description": "Manuscript PDFs between 8MB and 10MB upload without an error message but never appear in the submission file list. No error is shown to the user.",
             "severity": "high",
-            "category": "File handling",
             "timestamp": "2025-06-01T08:00:00",
         },
         {
@@ -71,7 +64,6 @@ class TicketGenerator:
             "title": "Supplementary file upload times out",
             "description": "Uploading supplementary data files (ZIP archives) causes a gateway timeout at around 30 seconds regardless of file size. The submission cannot be completed without supplementary files.",
             "severity": "high",
-            "category": "File handling",
             "timestamp": "2025-06-02T16:20:00",
         },
         {
@@ -79,7 +71,6 @@ class TicketGenerator:
             "title": "Image files rejected with incorrect format error",
             "description": "Valid TIFF and EPS figure files are rejected with 'unsupported format' even though both are listed as accepted formats in the submission guidelines.",
             "severity": "medium",
-            "category": "File handling",
             "timestamp": "2025-06-03T10:10:00",
         },
         {
@@ -87,7 +78,6 @@ class TicketGenerator:
             "title": "Cover letter draft deleted on browser back navigation",
             "description": "Authors navigating back from the file upload step lose all cover letter content entered in the previous step. The autosave does not capture the content before navigation.",
             "severity": "high",
-            "category": "Draft management",
             "timestamp": "2025-06-01T12:00:00",
         },
         {
@@ -95,7 +85,6 @@ class TicketGenerator:
             "title": "Autosave spinner shows but data not written",
             "description": "The autosave indicator spins and shows 'Saved' but reloading the form reveals the previous saved state. Confirmed via network tab that the save API call returns 200 but payload is empty.",
             "severity": "high",
-            "category": "Draft management",
             "timestamp": "2025-06-03T15:30:00",
         },
         {
@@ -103,7 +92,6 @@ class TicketGenerator:
             "title": "Keyword field not included in autosave",
             "description": "All fields are restored correctly from autosave except the keyword list, which resets to empty on reload. Authors have to re-enter all keywords after resuming a draft.",
             "severity": "medium",
-            "category": "Draft management",
             "timestamp": "2025-06-05T09:00:00",
         },
         {
@@ -111,7 +99,6 @@ class TicketGenerator:
             "title": "Reviewer invitation email not delivered",
             "description": "Invited reviewers are not receiving invitation emails. The system log shows the emails as sent but recipients confirm non-delivery. Issue started after the SMTP config change on June 1.",
             "severity": "critical",
-            "category": "Email service",
             "timestamp": "2025-06-02T08:30:00",
         },
         {
@@ -119,7 +106,6 @@ class TicketGenerator:
             "title": "Decision notification email sent to wrong author",
             "description": "The acceptance email for manuscript JMED-D-25-00301 was delivered to the corresponding author of a different manuscript. Emails appear to be mismatched at the queue dispatch step.",
             "severity": "critical",
-            "category": "Email service",
             "timestamp": "2025-06-04T14:00:00",
         },
         {
@@ -127,7 +113,6 @@ class TicketGenerator:
             "title": "Revision reminder emails firing multiple times",
             "description": "Authors are receiving the same revision deadline reminder 3-4 times within minutes of each other. The reminder job appears to be running multiple times due to a scheduler misconfiguration.",
             "severity": "medium",
-            "category": "Email service",
             "timestamp": "2025-06-05T11:45:00",
         },
         {
@@ -135,7 +120,6 @@ class TicketGenerator:
             "title": "Session expires during file upload",
             "description": "Users uploading large manuscript files are logged out mid-upload due to session expiry. The upload does not resume and all progress is lost.",
             "severity": "high",
-            "category": "Session management",
             "timestamp": "2025-06-01T13:00:00",
         },
         {
@@ -143,7 +127,6 @@ class TicketGenerator:
             "title": "Keep-alive mechanism not working for long forms",
             "description": "The session keep-alive ping is not firing while users are actively typing in long text fields. After 20 minutes, the session expires silently.",
             "severity": "high",
-            "category": "Session management",
             "timestamp": "2025-06-03T16:00:00",
         },
         {
@@ -151,7 +134,6 @@ class TicketGenerator:
             "title": "Double submission on slow network connections",
             "description": "Users on high-latency connections who click Submit more than once have two identical manuscripts appearing in the system. The submit button is not disabled after the first click.",
             "severity": "critical",
-            "category": "Data integrity",
             "timestamp": "2025-06-02T10:00:00",
         },
         {
@@ -159,7 +141,6 @@ class TicketGenerator:
             "title": "Revision uploaded as new submission",
             "description": "Authors who upload a revised manuscript are occasionally having it registered as a brand new submission rather than a revision, creating orphaned records in the database.",
             "severity": "critical",
-            "category": "Data integrity",
             "timestamp": "2025-06-04T11:30:00",
         },
         {
@@ -167,7 +148,6 @@ class TicketGenerator:
             "title": "Manuscript list page times out for editors with large queues",
             "description": "Handling editors with more than 200 active manuscripts experience page timeouts when loading their queue. The query appears to be fetching all records without pagination.",
             "severity": "high",
-            "category": "Performance",
             "timestamp": "2025-06-01T09:30:00",
         },
         {
@@ -175,7 +155,6 @@ class TicketGenerator:
             "title": "PDF preview rendering takes over 30 seconds",
             "description": "The inline PDF preview on the submission detail page takes 30+ seconds to render for manuscripts with many figures. Other editors have disabled preview entirely as a workaround.",
             "severity": "medium",
-            "category": "Performance",
             "timestamp": "2025-06-03T14:30:00",
         },
         {
@@ -183,7 +162,6 @@ class TicketGenerator:
             "title": "Search across submissions returns results after 20 second delay",
             "description": "The global search bar across all submissions exhibits very high latency. A full-text search query on title or author name takes 15-25 seconds to return results.",
             "severity": "medium",
-            "category": "Performance",
             "timestamp": "2025-06-05T10:30:00",
         },
         {
@@ -191,7 +169,6 @@ class TicketGenerator:
             "title": "Co-author cannot access shared manuscript",
             "description": "Co-authors invited to collaborate on a submission receive a 403 Forbidden error when clicking the manuscript link from their invitation email. The corresponding author's access is unaffected.",
             "severity": "high",
-            "category": "Access control",
             "timestamp": "2025-06-01T11:00:00",
         },
         {
@@ -199,7 +176,6 @@ class TicketGenerator:
             "title": "Editor loses access after role change",
             "description": "When an editor's role is updated from Associate Editor to Senior Editor in the admin panel, their session loses access to all manuscripts immediately. Re-login does not restore access.",
             "severity": "high",
-            "category": "Access control",
             "timestamp": "2025-06-02T13:30:00",
         },
         {
@@ -207,7 +183,6 @@ class TicketGenerator:
             "title": "Guest reviewer assigned to wrong journal section",
             "description": "Guest reviewers are being assigned manuscripts outside their declared area of expertise due to a permission scoping bug. They can see and review manuscripts from unrelated journal sections.",
             "severity": "medium",
-            "category": "Access control",
             "timestamp": "2025-06-04T09:00:00",
         },
         {
@@ -215,7 +190,6 @@ class TicketGenerator:
             "title": "Manuscript status stuck on 'With Editor' after decision",
             "description": "Following an Accept decision, the manuscript status does not advance to 'Accepted'. It remains 'With Editor' indefinitely. Authors checking submission status see no update.",
             "severity": "medium",
-            "category": "Status tracking",
             "timestamp": "2025-06-02T15:00:00",
         },
         {
@@ -223,7 +197,6 @@ class TicketGenerator:
             "title": "Revision deadline not updated after extension granted",
             "description": "When an editor grants a revision deadline extension via the admin panel, the new deadline is saved internally but the author-facing portal still shows the original date.",
             "severity": "medium",
-            "category": "Status tracking",
             "timestamp": "2025-06-03T11:00:00",
         },
         {
@@ -231,7 +204,6 @@ class TicketGenerator:
             "title": "Withdrawn manuscripts still appear in active queue",
             "description": "Manuscripts that authors have formally withdrawn continue to appear in the handling editor's active queue. The withdrawal event does not trigger a status update in the editorial dashboard.",
             "severity": "medium",
-            "category": "Status tracking",
             "timestamp": "2025-06-05T14:00:00",
         },
         {
@@ -239,7 +211,6 @@ class TicketGenerator:
             "title": "ORCID field accepts invalid identifier format",
             "description": "The ORCID input field does not validate the standard format (0000-0000-0000-000X) and accepts arbitrary strings. This causes downstream API failures when syncing with the ORCID registry.",
             "severity": "medium",
-            "category": "Validation",
             "timestamp": "2025-06-01T14:00:00",
         },
         {
@@ -247,7 +218,6 @@ class TicketGenerator:
             "title": "Abstract word count limit not enforced on submission",
             "description": "Submissions with abstracts exceeding the 300-word limit are accepted without warning. The client-side counter shows the overage but does not block submission.",
             "severity": "low",
-            "category": "Validation",
             "timestamp": "2025-06-03T09:00:00",
         },
         {
@@ -255,7 +225,6 @@ class TicketGenerator:
             "title": "Dark mode toggle resets on every login",
             "description": "User preference for dark mode is not persisted across sessions. Every login defaults back to light mode regardless of the saved preference.",
             "severity": "low",
-            "category": "UI Preferences",
             "timestamp": "2025-06-04T16:00:00",
         },
         {
@@ -263,7 +232,6 @@ class TicketGenerator:
             "title": "Incorrect journal impact factor displayed on homepage",
             "description": "The journal's impact factor shown on the public-facing homepage is the 2022 value rather than the updated 2024 value. This appears to be a static content issue.",
             "severity": "low",
-            "category": "Static content",
             "timestamp": "2025-06-05T08:00:00",
         },
     ]

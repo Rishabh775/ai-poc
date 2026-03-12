@@ -26,8 +26,8 @@ export function ExecutiveSummary({
     trendDir === "increasing"
       ? "text-red-600"
       : trendDir === "decreasing"
-      ? "text-emerald-600"
-      : "text-zinc-600";
+        ? "text-emerald-600"
+        : "text-zinc-600";
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-card">
@@ -59,14 +59,15 @@ export function ExecutiveSummary({
               {changeTracking && ` (Δ ${changeTracking.delta_percent}%)`}
             </span>
           </div>
-          <ul className="mt-4 space-y-1 border-t border-zinc-100 pt-4 text-sm text-zinc-600">
-            <li>• Prioritize top 3 recurring clusters</li>
-            <li>
-              • Investigate root cause of{" "}
-              {trendDir === "increasing" ? "incident spike" : "primary workflow"}
-            </li>
-            <li>• Deploy monitoring for high-impact patterns</li>
-          </ul>
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <p className="text-sm font-medium text-zinc-900 mb-2">
+              Recommended action:
+            </p>
+            <p className="text-sm leading-relaxed text-zinc-700">
+              {metrics.top_recommended_action ||
+                "Monitor and analyze top patterns for continuous improvement."}
+            </p>
+          </div>
         </div>
       </div>
     </div>

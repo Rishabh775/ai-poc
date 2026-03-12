@@ -69,6 +69,7 @@ export interface ChangeTracking {
 export interface Metrics {
   total_incidents: number;
   top_issue: string;
+  top_recommended_action?: string;
   risk_score: number;
   stability_index: number;
   trend_direction: string;
@@ -160,6 +161,14 @@ export interface ClusterAssignmentResponse {
   message: string;
 }
 
+export interface QualityMetrics {
+  silhouette_score: number | null;
+  silhouette_interpretation: string;
+  confusion_matrix: Record<string, Record<string, number>>;
+  cluster_labels: string[];
+  ground_truth_categories: string[];
+}
+
 export interface InsightsResponse {
   clusters: Cluster[];
   unclustered_tickets: Array<{
@@ -171,6 +180,7 @@ export interface InsightsResponse {
   trends: Trends;
   change_tracking: ChangeTracking;
   metrics: Metrics;
+  quality: QualityMetrics;
   total_tickets: number;
   config: Config;
 }
@@ -204,8 +214,15 @@ export const api = {
     return response.data;
   },
 
-  searchTickets: async (query: string): Promise<{tickets: Array<{id: string, title: string, severity: string}>, total: number}> => {
-    const response = await axios.get(`${API_BASE_URL}/tickets/search`, { params: { q: query } });
+  searchTickets: async (
+    query: string,
+  ): Promise<{
+    tickets: Array<{ id: string; title: string; severity: string }>;
+    total: number;
+  }> => {
+    const response = await axios.get(`${API_BASE_URL}/tickets/search`, {
+      params: { q: query },
+    });
     return response.data;
   },
 
@@ -216,23 +233,27 @@ export const api = {
 
   createJiraDraft: async (clusterId: number): Promise<JiraDraft> => {
     const response = await axios.post(
-      `${API_BASE_URL}/jira-draft/${clusterId}`
+      `${API_BASE_URL}/jira-draft/${clusterId}`,
     );
     return response.data;
   },
 
-  checkDuplicate: async (request: DuplicateCheckRequest): Promise<DuplicateCheckResponse> => {
+  checkDuplicate: async (
+    request: DuplicateCheckRequest,
+  ): Promise<DuplicateCheckResponse> => {
     const response = await axios.post(
       `${API_BASE_URL}/check-duplicate`,
-      request
+      request,
     );
     return response.data;
   },
 
-  assignCluster: async (request: ClusterAssignmentRequest): Promise<ClusterAssignmentResponse> => {
+  assignCluster: async (
+    request: ClusterAssignmentRequest,
+  ): Promise<ClusterAssignmentResponse> => {
     const response = await axios.post(
       `${API_BASE_URL}/assign-cluster`,
-      request
+      request,
     );
     return response.data;
   },

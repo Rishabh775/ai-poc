@@ -18,6 +18,7 @@ import { JiraModal } from "./components/JiraModal";
 import { DuplicateCheckPanel } from "./components/DuplicateCheckPanel";
 import { ClusterChangeTracker } from "./components/ClusterChangeTracker";
 import { ClusterConfidencePanel } from "./components/ClusterConfidencePanel";
+import { ClusterQualityPanel } from "./components/ClusterQualityPanel";
 import { AllTicketsPanel } from "./components/AllTicketsPanel";
 
 type SortOption =
@@ -336,7 +337,10 @@ function App() {
         )}
 
         {activeTab === "confidence" && (
-          <div className="mx-auto max-w-2xl">
+          <div className="space-y-6 mx-auto max-w-2xl">
+            {insights.quality && (
+              <ClusterQualityPanel quality={insights.quality} />
+            )}
             <ClusterConfidencePanel
               clusters={insights.clusters}
               averageConfidence={metrics.average_cluster_confidence}

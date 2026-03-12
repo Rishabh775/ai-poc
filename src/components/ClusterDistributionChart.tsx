@@ -19,7 +19,7 @@ const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6366f1"
 export function ClusterDistributionChart({
   clusters,
 }: ClusterDistributionChartProps) {
-  const chartData = clusters.slice(0, 8).map((c) => ({
+  const chartData = clusters.map((c) => ({
     name: `#${c.cluster_id}`,
     count: c.incident_count,
   }));
