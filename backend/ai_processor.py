@@ -17,6 +17,7 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_samples
 from typing import List, Dict, Any, Tuple, Optional
 from collections import Counter
@@ -171,6 +172,11 @@ class OperationalAIProcessor:
         "time out": "timeout",
     }
 
+    # FIX 1: CATEGORY_SIMILARITY_BOOST is now actually wired in.
+    # Applied during hybrid feature construction to pull related categories
+    # closer together in feature space before clustering.
+    # Format: (category_a, category_b) -> similarity boost added to
+    # the dot product of their one-hot encoded vectors.
     CATEGORY_SIMILARITY_BOOST = {
         ("Review Comments", "Review Recommendation"): 0.15,
         ("File handling", "Draft management"): 0.10,
@@ -189,6 +195,8 @@ class OperationalAIProcessor:
         self.category_encoder: Optional[OneHotEncoder] = None
         self.severity_encoder: Optional[StandardScaler] = None
         self.scaler: Optional[StandardScaler] = None
+        self.pca: Optional[PCA] = None
+        self.pca_components: int = config.PCA_COMPONENTS if config.USE_PCA else None
 
     def normalize_ticket_text(self, title: str, description: str, severity: str) -> str:
         """Create enriched combined text with normalization.
@@ -326,18 +334,40 @@ class OperationalAIProcessor:
         }
 
     def _build_hybrid_features(self):
-        """Build hybrid feature vector combining text embeddings with metadata."""
+        """Build hybrid feature vector combining text embeddings with metadata.
+
+        FIX 1: CATEGORY_SIMILARITY_BOOST is now applied here.
+        After one-hot encoding, we add the boost value to the dot product
+        between tickets that belong to related category pairs, pulling them
+        closer in feature space before clustering runs.
+
+        FIX 5: Optional PCA dimensionality reduction to reduce noise in
+        high-dimensional embeddings (768 -> 128 dimensions).
+        """
         text_weight = config.HYBRID_WEIGHT_TEXT
         category_weight = config.HYBRID_WEIGHT_CATEGORY
         severity_weight = config.HYBRID_WEIGHT_SEVERITY
 
-        text_features = self.embeddings * text_weight
+        embeddings_to_use = self.embeddings.copy()
+
+        n_samples = embeddings_to_use.shape[0]
+        n_features = embeddings_to_use.shape[1]
+        max_components = min(n_samples, n_features)
+
+        if config.USE_PCA:
+            target_components = min(config.PCA_COMPONENTS, max_components)
+            if embeddings_to_use.shape[1] > target_components:
+                self.pca = PCA(n_components=target_components)
+                embeddings_to_use = self.pca.fit_transform(embeddings_to_use)
+
+        text_features = embeddings_to_use * text_weight
 
         has_category = "category" in self.tickets_df.columns
         has_severity = "severity" in self.tickets_df.columns
 
         metadata_features = np.zeros((len(self.tickets_df), 0))
 
+        category_encoded = None
         if has_category and category_weight > 0:
             categories = (
                 self.tickets_df["category"].fillna("unknown").values.reshape(-1, 1)
@@ -346,6 +376,27 @@ class OperationalAIProcessor:
                 sparse_output=False, handle_unknown="ignore"
             )
             category_encoded = self.category_encoder.fit_transform(categories)
+
+            # Apply CATEGORY_SIMILARITY_BOOST: for each pair of related categories,
+            # find tickets in each and add the boost to their category vectors'
+            # cross-component, effectively shrinking their distance in feature space.
+            category_list = [
+                cat[len("x0_") :] if cat.startswith("x0_") else cat
+                for cat in self.category_encoder.get_feature_names_out()
+            ]
+            ticket_categories = self.tickets_df["category"].fillna("unknown").tolist()
+
+            for (cat_a, cat_b), boost in self.CATEGORY_SIMILARITY_BOOST.items():
+                if cat_a in category_list and cat_b in category_list:
+                    idx_a = category_list.index(cat_a)
+                    idx_b = category_list.index(cat_b)
+                    # For tickets in cat_a, boost their cat_b component and vice versa
+                    for i, tc in enumerate(ticket_categories):
+                        if tc == cat_a:
+                            category_encoded[i, idx_b] += boost
+                        elif tc == cat_b:
+                            category_encoded[i, idx_a] += boost
+
             category_scaled = category_encoded * category_weight
             metadata_features = np.hstack([metadata_features, category_scaled])
 
@@ -368,7 +419,7 @@ class OperationalAIProcessor:
         else:
             self.hybrid_features = text_features
 
-    def _cluster_issues_hybrid(self) -> List[Dict]:
+    def _cluster_issues_hybrid(self) -> Tuple[List[Dict], List[Dict]]:
         """Cluster using hybrid features (text + metadata)."""
         features_to_use = (
             self.hybrid_features
@@ -394,6 +445,7 @@ class OperationalAIProcessor:
                 eps=config.DBSCAN_EPS, min_samples=config.MIN_SAMPLES, metric="cosine"
             )
             labels = clustering.fit_predict(features_to_use)
+
         self.tickets_df["cluster"] = labels
 
         if len(set(labels)) > 1:
@@ -434,6 +486,7 @@ class OperationalAIProcessor:
             for t in all_tickets:
                 t["timestamp"] = t["timestamp"].isoformat()
 
+            # FIX 2: summary is now topic-aware, not a generic template
             summary = self._generate_cluster_summary(cluster_tickets)
             top_keywords = self._extract_top_keywords(cluster_tickets)
             representative_ticket = example_tickets[0] if example_tickets else None
@@ -570,20 +623,7 @@ class OperationalAIProcessor:
         severity: str = "",
         title_only: bool = False,
     ) -> Dict:
-        """Check if a new ticket is a duplicate of existing clusters.
-
-        Args:
-            title: Ticket title (required)
-            description: Ticket description (optional)
-            severity: Severity level (optional, used if title_only=False)
-            title_only: If True, search only by title
-
-        Returns:
-            is_duplicate: Whether similarity exceeds threshold
-            confidence_score: Maximum similarity score
-            matched_cluster_id: ID of most similar cluster
-            similar_tickets: Example tickets from matched cluster
-        """
+        """Check if a new ticket is a duplicate of existing clusters."""
         if self.embeddings is None or self.tickets_df is None:
             return {
                 "is_duplicate": False,
@@ -635,10 +675,7 @@ class OperationalAIProcessor:
             }
 
     def assign_to_cluster(self, title: str, description: str, severity: str) -> Dict:
-        """Dynamically assign a new ticket to existing cluster or create new cluster.
-
-        Uses centroid-based assignment with configurable threshold.
-        """
+        """Dynamically assign a new ticket to existing cluster or create new cluster."""
         if not self.cluster_centroids:
             return {
                 "assigned_cluster_id": -1,
@@ -684,7 +721,6 @@ class OperationalAIProcessor:
             incident_count = c["incident_count"]
             confidence = c.get("cluster_confidence_score", 0.5)
 
-            summary = c.get("summary", "")
             first_seen = pd.Timestamp(c["first_seen"])
             last_seen = pd.Timestamp(c["last_seen"])
             time_span = (last_seen - first_seen).days
@@ -708,29 +744,33 @@ class OperationalAIProcessor:
             )
             c["recurrence_signal"] = recurrence_signal
 
-            # Generate context-specific recommended action
             critical_count = severity_counts.get("critical", 0)
             high_count = severity_counts.get("high", 0)
 
             if recurrence_signal == "recurring" and critical_count >= 2:
                 c["recommended_action"] = (
-                    f"Critical recurring pattern detected. Immediately investigate root cause and implement permanent fix. Current rate: {incident_count} incidents over {time_span} days."
+                    f"Critical recurring pattern detected. Immediately investigate root cause "
+                    f"and implement permanent fix. Current rate: {incident_count} incidents over {time_span} days."
                 )
             elif recurrence_signal == "spike" and critical_count >= 1:
                 c["recommended_action"] = (
-                    f"Urgent spike in critical incidents. Establish incident response team and deploy hotfix. {incident_count} incidents detected."
+                    f"Urgent spike in critical incidents. Establish incident response team "
+                    f"and deploy hotfix. {incident_count} incidents detected."
                 )
             elif time_span <= 1 and incident_count >= 3:
                 c["recommended_action"] = (
-                    f"High-frequency spike detected. Enable detailed logging and monitoring. Escalate to on-call team immediately."
+                    f"High-frequency spike detected within 24 hours. Enable detailed logging "
+                    f"and monitoring. Escalate to on-call team immediately."
                 )
-            elif high_count >= 3 or (impact >= 50):
+            elif high_count >= 3 or impact >= 50:
                 c["recommended_action"] = (
-                    f"High-impact cluster requiring prompt attention. Review recent deployments and configuration changes. Schedule emergency review meeting."
+                    f"High-impact cluster requiring prompt attention. Review recent deployments "
+                    f"and configuration changes. Schedule emergency review meeting."
                 )
             elif recurrence_signal == "recurring":
                 c["recommended_action"] = (
-                    f"Establish preventive monitoring for this recurring pattern. Document workflow and implement safeguards to reduce incident frequency."
+                    f"Establish preventive monitoring for this recurring pattern. Document "
+                    f"workflow and implement safeguards to reduce incident frequency."
                 )
             else:
                 c["recommended_action"] = (
@@ -787,24 +827,40 @@ class OperationalAIProcessor:
         return frequency_score + severity_score + recurrence_score
 
     def _generate_cluster_summary(self, cluster_tickets: pd.DataFrame) -> str:
-        """Human-readable summary of cluster."""
+        """Human-readable summary of cluster.
+
+        FIX 2: Summary now leads with the actual topic (top keywords) rather
+        than a generic severity/count template. This makes it useful in the
+        dashboard overview without having to drill into individual tickets.
+        """
         count = len(cluster_tickets)
         severity_mode = cluster_tickets["severity"].mode()[0]
-        common_terms = self._extract_common_terms(cluster_tickets)
+        top_keywords = self._extract_common_terms(cluster_tickets)
         time_span = (
             cluster_tickets["timestamp"].max() - cluster_tickets["timestamp"].min()
         ).days
 
-        summary = f"Recurring {severity_mode} severity issue. "
-        summary += f"{count} incidents over {time_span} days. "
-        if common_terms:
-            summary += f"Common patterns: {', '.join(common_terms[:3])}. "
-        if time_span < 7:
-            summary += "Recent spike - requires immediate attention."
-        elif count > 10:
-            summary += "High frequency - suggests systematic problem."
+        # Lead with topic, not boilerplate
+        if top_keywords:
+            topic = ", ".join(top_keywords[:2])
+            summary = f"{count} {severity_mode}-severity incidents related to {topic}. "
         else:
-            summary += "Intermittent pattern - monitor for escalation."
+            summary = f"{count} {severity_mode}-severity incidents. "
+
+        summary += f"Spanning {time_span} days. "
+
+        # Dominant category if available
+        if "category" in cluster_tickets.columns:
+            dominant_category = cluster_tickets["category"].mode()[0]
+            summary += f"Category: {dominant_category}. "
+
+        if time_span < 7:
+            summary += "Recent spike — requires immediate attention."
+        elif count > 10:
+            summary += "High frequency — suggests systematic problem."
+        else:
+            summary += "Intermittent pattern — monitor for escalation."
+
         return summary
 
     def _extract_common_terms(self, cluster_tickets: pd.DataFrame) -> List[str]:
@@ -1001,9 +1057,16 @@ class OperationalAIProcessor:
     def _compute_quality_metrics(
         self, clusters: List[Dict], unclustered_tickets: List[Dict]
     ) -> Dict:
-        """Compute clustering quality metrics: silhouette score and confusion matrix."""
-        from sklearn.metrics import silhouette_score
+        """Compute clustering quality metrics: silhouette score and confusion matrix.
 
+        FIX 3: Silhouette score is now read from already-computed per-ticket
+        values in self.tickets_df["silhouette_score"] rather than recomputing
+        from scratch. This eliminates the double-computation and ensures the
+        quality score matches what individual tickets show.
+
+        FIX 4: ground_truth_coverage is now included in the output so the
+        dashboard can show how much of the dataset the quality metrics reflect.
+        """
         ticket_to_cluster = {}
         for cluster in clusters:
             for t in cluster.get("all_tickets", []):
@@ -1023,18 +1086,26 @@ class OperationalAIProcessor:
                 predicted_labels.append(ticket_to_cluster.get(ticket_id, -1))
                 valid_indices.append(idx)
 
+        total_tickets = len(self.tickets_df)
+        covered_tickets = len(valid_indices)
+
+        # FIX 3: Read pre-computed silhouette scores instead of recomputing.
+        # Only include tickets that (a) have ground truth and (b) are in a cluster
+        # (silhouette is undefined for noise points labeled -1).
         silhouette = None
-        if len(set(predicted_labels)) > 1 and len(valid_indices) > 1:
+        if valid_indices and len(set(predicted_labels)) > 1:
             try:
-                features = (
-                    self.hybrid_features[valid_indices]
-                    if self.hybrid_features is not None
-                    else self.embeddings[valid_indices]
-                )
-                silhouette = silhouette_score(
-                    features, predicted_labels, metric="cosine"
-                )
-            except ValueError:
+                clustered_mask = [p != -1 for p in predicted_labels]
+                clustered_indices = [
+                    idx for idx, m in zip(valid_indices, clustered_mask) if m
+                ]
+                if len(clustered_indices) > 1:
+                    silhouette = float(
+                        self.tickets_df.loc[
+                            clustered_indices, "silhouette_score"
+                        ].mean()
+                    )
+            except (KeyError, ValueError):
                 silhouette = None
 
         confusion_matrix = {}
@@ -1069,12 +1140,18 @@ class OperationalAIProcessor:
             if silhouette is not None
             else None,
             "silhouette_interpretation": self._interpret_silhouette(silhouette),
+            # FIX 4: Expose coverage so dashboard can show "Quality based on X/Y tickets"
+            "ground_truth_coverage": covered_tickets,
+            "ground_truth_total": total_tickets,
+            "ground_truth_coverage_pct": round(covered_tickets / total_tickets * 100, 1)
+            if total_tickets > 0
+            else 0.0,
             "confusion_matrix": confusion_matrix,
             "cluster_labels": cluster_ids,
             "ground_truth_categories": all_categories,
         }
 
-    def _interpret_silhouette(self, score: float) -> str:
+    def _interpret_silhouette(self, score: Optional[float]) -> str:
         """Provide human-readable interpretation of silhouette score."""
         if score is None:
             return "Insufficient data"
