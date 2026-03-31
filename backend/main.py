@@ -12,7 +12,7 @@ Features:
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 import uvicorn
 
 from ticket_generator import TicketGenerator
@@ -87,7 +87,7 @@ ticket_generator = TicketGenerator()
 demo_tickets = ticket_generator.generate_tickets()
 
 ai_processor = OperationalAIProcessor()
-insights_cache: Dict[str, Any] | None = None
+insights_cache: Optional[Dict[str, Any]] = None
 cluster_names: Dict[int, str] = {}
 
 

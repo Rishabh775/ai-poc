@@ -1,0 +1,136 @@
+[
+  
+  {
+    "id": "POC-085",
+    "title": "Reviewer unable to add comments for R1 version - reply button not visible",
+    "description": "Reviewer attempting to review R1 version cannot locate reply button to add comments. When attempting to submit review, system shows error: \"You need to add comments or address author replies to submit your review\". However, no interface option exists to add comments or replies. This blocks the reviewer from completing the review submission.",
+    "severity": "critical",
+    "timestamp": "2025-10-10T09:15:00"
+  },
+  {
+    "id": "POC-086",
+    "title": "Summary Tab: Reply button is missing for R1 review",
+    "description": "In the Summary Tab, the reply button is not displayed for reviewers attempting to add comments on R1 version. The interface shows the review form but lacks the button needed to add or edit comments. Reviewer cannot proceed with adding review feedback.",
+    "severity": "critical",
+    "timestamp": "2025-10-10T10:30:00"
+  },
+  {
+    "id": "POC-087",
+    "title": "Reviewer unable to submit review comments in Revision 2 - reply option unavailable",
+    "description": "In Revision 2, the reviewer lacks the option to add replies or comments. The reply feature is completely absent from the interface. Reviewer cannot submit review comments for R2 and workflow is blocked.",
+    "severity": "critical",
+    "timestamp": "2025-10-10T11:45:00"
+  },
+  {
+    "id": "POC-088",
+    "title": "Reviewer reply button missing for R1 version - form validation error",
+    "description": "Reviewer attempting to review R1 receives error: \"You must add comments and a recommendation before sending the review to the editor\". However, no interface option exists to add further comments. The reply button is missing from the form, making it impossible to satisfy the system requirement.",
+    "severity": "critical",
+    "timestamp": "2025-10-10T13:00:00"
+  },
+  {
+    "id": "POC-089",
+    "title": "Author missing \"Submit response to reviews\" option - only sees Export button",
+    "description": "Author accessing \"View and reply to reviews\" link can only see the \"Export review\" option. The \"Submit response to reviews\" option (documented in user guide) is missing. Additionally, clicking on reviewers' \"Comments\" or \"Summary\" sections does not bring up the response box/field. Authors are unable to submit replies to reviewers and cannot proceed with revised manuscript submission.",
+    "severity": "critical",
+    "timestamp": "2025-10-10T14:20:00"
+  },
+  {
+    "id": "POC-090",
+    "title": "Reviewer unable to add comments for R1 - reply button missing from interface",
+    "description": "Reviewer in R1 review workflow encounters missing reply button for adding comments. System error states: \"You must add comments and a recommendation before sending the review to the editor\" but no interface provides option to add further comments. Form submission is blocked despite having content to review.",
+    "severity": "critical",
+    "timestamp": "2025-10-11T08:30:00"
+  },
+  {
+    "id": "POC-091",
+    "title": "File upload timeout when submitting revision manuscript",
+    "description": "Author attempts to upload revised manuscript PDF (15 MB). Upload starts but hangs at 60-70% completion. After 5 minutes, browser times out with error: \"Connection reset by peer\". Revision cannot be submitted.",
+    "severity": "critical",
+    "timestamp": "2025-10-12T10:15:00"
+  },
+  {
+    "id": "POC-092",
+    "title": "Manuscript file upload fails for large documents",
+    "description": "During revision submission, uploading a 20 MB PDF file fails after 2 minutes with error: \"Upload failed - server error 500\". The file never appears in the system. Smaller files (under 5 MB) upload successfully.",
+    "severity": "critical",
+    "timestamp": "2025-10-12T11:30:00"
+  },
+  {
+    "id": "POC-093",
+    "title": "Supplementary file upload stuck in progress state",
+    "description": "Author uploads supplementary materials (3 MB zip file). Progress bar shows 100% but the upload button remains disabled. System shows file as pending indefinitely. Cannot complete manuscript submission without this file.",
+    "severity": "high",
+    "timestamp": "2025-10-12T13:00:00"
+  },
+  {
+    "id": "POC-094",
+    "title": "Revision document upload fails repeatedly with network error",
+    "description": "Reviewer uploads marked-up revision file (docx, 8 MB). Upload fails with \"Network error - please retry\" message. Works on first attempt 50% of the time. File format validation appears to reject some docx versions.",
+    "severity": "high",
+    "timestamp": "2025-10-12T14:45:00"
+  },
+  {
+    "id": "POC-095",
+    "title": "Multiple file upload causes browser to freeze",
+    "description": "When uploading multiple manuscript files simultaneously (PDF, Word, supplementary), the browser freezes for 30+ seconds. Sometimes one file fails to upload while others succeed partially. Inconsistent behavior across browsers.",
+    "severity": "high",
+    "timestamp": "2025-10-12T16:20:00"
+  },
+  {
+    "id": "POC-096",
+    "title": "Uploaded manuscript file corrupted after successful upload",
+    "description": "Author uploads revision (12 MB PDF). Upload completes successfully with no errors. However, when editor downloads the file for review, it's corrupted and cannot be opened. MD5 hash shows file was altered during transfer.",
+    "severity": "critical",
+    "timestamp": "2025-10-13T09:00:00"
+  },
+  {
+    "id": "POC-097",
+    "title": "File upload hangs at 99% - never completes",
+    "description": "User uploads manuscript files. Progress bar reaches 99% and stays there indefinitely. The upload appears stuck. Closing the browser tab loses all progress. Resuming upload is not possible.",
+    "severity": "critical",
+    "timestamp": "2025-10-13T10:30:00"
+  },
+  {
+    "id": "POC-098",
+    "title": "Unsupported file format error on valid PDF uploads",
+    "description": "System rejects PDF files with error: \"File format not supported\". Same PDF files can be uploaded via API but not via web UI. The validation logic in the web form appears overly strict.",
+    "severity": "medium",
+    "timestamp": "2025-10-13T12:00:00"
+  },
+  {
+    "id": "POC-099",
+    "title": "File upload quota exceeded even after cleanup",
+    "description": "Author receives error: \"Upload quota exceeded - 5 GB limit\". User deleted old revisions but storage still shows as full. Previous files should have freed up space but system shows no change.",
+    "severity": "high",
+    "timestamp": "2025-10-13T13:15:00"
+  },
+  {
+    "id": "POC-100",
+    "title": "Reviewer unable to download PDF format in new peer review platform",
+    "description": "Reviewer completes their review and attempts to download the PDF manuscript to attach notes for their own records. The download button is either missing or returns an error. PDF format is not available for download. Reviewer cannot export manuscript for reference.",
+    "severity": "high",
+    "timestamp": "2025-10-14T09:00:00"
+  },
+  {
+    "id": "POC-101",
+    "title": "Editor unable to view or download review comments from reviewers",
+    "description": "Editor of journal cannot view or download review comments received from five reviewers on the NPRE page. The review comments list returns empty. However, the same comments are visible when accessing via JM profile. The Download Review option returns error when accessed under editor proxy. Issue is permission/visibility related for proxy roles.",
+    "severity": "critical",
+    "timestamp": "2025-10-14T10:30:00"
+  },
+  {
+    "id": "POC-102",
+    "title": "PDF download issue for reviewer on new Journal platform",
+    "description": "Reviewer experiences persistent PDF download failures on the new journal platform. The download link is clickable but fails silently or returns a broken file. This prevents the reviewer from working offline with the manuscript. Affects multiple reviewers across different journals.",
+    "severity": "high",
+    "timestamp": "2025-10-14T11:45:00"
+  },
+  {
+    "id": "POC-103",
+    "title": "Pop-up error preventing reviewer from downloading manuscript for review",
+    "description": "Reviewer attempts to download the manuscript file but a pop-up error appears blocking the download action. The error message is vague and does not provide path to resolution. Download functionality fails. If reviewer dismisses the popup, they can view the NORE page but the manuscript download still fails. The download should complete without error popup interference.",
+    "severity": "critical",
+    "timestamp": "2025-10-14T13:00:00"
+  }
+]

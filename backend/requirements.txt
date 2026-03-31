@@ -7,4 +7,4 @@ numpy==1.26.3
 python-dateutil==2.8.2
 google-genai>=1.0.0
 python-dotenv>=1.0.0
-hdbscan>=1.0.0
+hdbscan>=0.8.0

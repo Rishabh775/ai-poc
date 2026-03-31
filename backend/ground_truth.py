@@ -66,6 +66,26 @@ TICKET_CATEGORIES = {
     "SE-103": "Static content",
     "SE-104": "Session management",
     "SE-105": "Performance",
+    # POC tickets from poc_tickets.json
+    "POC-085": "Review Comments",
+    "POC-086": "Review Comments",
+    "POC-087": "Review Comments",
+    "POC-088": "Review Comments",
+    "POC-089": "Review Comments",
+    "POC-090": "Review Comments",
+    "POC-091": "File handling",
+    "POC-092": "File handling",
+    "POC-093": "File handling",
+    "POC-094": "File handling",
+    "POC-095": "File handling",
+    "POC-096": "File handling",
+    "POC-097": "File handling",
+    "POC-098": "File handling",
+    "POC-099": "File handling",
+    "POC-100": "File handling",
+    "POC-101": "File handling",
+    "POC-102": "File handling",
+    "POC-103": "File handling",
 }
 
 ALL_CATEGORIES = [

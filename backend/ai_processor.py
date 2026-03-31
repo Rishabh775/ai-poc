@@ -178,11 +178,13 @@ class OperationalAIProcessor:
     # Format: (category_a, category_b) -> similarity boost added to
     # the dot product of their one-hot encoded vectors.
     CATEGORY_SIMILARITY_BOOST = {
-        ("Review Comments", "Review Recommendation"): 0.15,
-        ("File handling", "Draft management"): 0.10,
-        ("Session management", "Access control"): 0.12,
-        ("Email service", "Status tracking"): 0.08,
-        ("Performance", "Data integrity"): 0.10,
+        # Only kept pairs where a single ticket can genuinely straddle both
+        # categories (e.g. "reviewer can't submit score" touches both review
+        # comments and recommendation).  All other pairs were removed because
+        # they linked distinct problem types (upload failure ≠ autosave broken,
+        # session timeout ≠ permission denied, slow page ≠ data not saving)
+        # and caused unrelated tickets to merge into the same cluster.
+        ("Review Comments", "Review Recommendation"): 0.08,
     }
 
     def __init__(self):
@@ -252,6 +254,175 @@ class OperationalAIProcessor:
         combined = combined.strip()
         return combined
 
+    def normalize_tickets_with_llm(self, tickets: List[Dict]) -> List[str]:
+        """Use Gemini to rewrite each ticket into a canonical one-sentence problem statement.
+
+        This is the key fix for "same problem, different wording" clustering failures.
+        When ops staff describe the same issue differently each time (e.g. "comment reply
+        missing for reviewer" vs "author's reply not appearing in review panel"), standard
+        embedding picks up surface differences and may not cluster them together.
+        Gemini strips the noise and extracts the core symptom, so both become nearly
+        identical vectors and land in the same cluster.
+
+        Tickets are processed in batches (LLM_NORMALIZATION_BATCH_SIZE) to minimise
+        API round-trips.  Any batch that fails falls back to standard normalization
+        for those tickets so the pipeline never stalls.
+
+        Returns a list of normalized text strings in the same order as `tickets`.
+        """
+        results = [""] * len(tickets)
+
+        # Pre-fill with standard normalization as fallback
+        for i, ticket in enumerate(tickets):
+            results[i] = self.normalize_ticket_text(
+                str(ticket.get("title", "")),
+                str(ticket.get("description", "")),
+                str(ticket.get("severity", "")),
+            )
+
+        if not config.USE_LLM_NORMALIZATION or not config.GEMINI_API_KEY:
+            return results
+
+        try:
+            from google import genai
+            from google.genai import types as genai_types
+
+            client = genai.Client(api_key=config.GEMINI_API_KEY)
+        except Exception:
+            return results
+
+        batch_size = config.LLM_NORMALIZATION_BATCH_SIZE
+        total = len(tickets)
+
+        for batch_start in range(0, total, batch_size):
+            batch = tickets[batch_start : batch_start + batch_size]
+            batch_lines = []
+            for j, t in enumerate(batch, start=1):
+                title = str(t.get("title", "")).strip()
+                desc = str(t.get("description", "")).strip()
+                # Truncate very long descriptions to keep prompt size manageable
+                if len(desc) > 300:
+                    desc = desc[:300] + "..."
+                batch_lines.append(f"{j}. Title: {title} | Description: {desc}")
+
+            prompt = (
+                "For each support ticket below, write ONE concise sentence (max 12 words) "
+                "that captures the core technical problem.\n"
+                "Rules:\n"
+                "- Focus on WHAT is broken and WHAT symptom the user sees.\n"
+                "- Do NOT mention names, dates, ticket IDs, or workarounds.\n"
+                "- Do NOT start with 'The user' or 'A user'.\n"
+                "- Return ONLY a numbered list matching the input order, nothing else.\n\n"
+                "Tickets:\n"
+                + "\n".join(batch_lines)
+                + "\n\nProblem statements:"
+            )
+
+            try:
+                response = client.models.generate_content(
+                    model=config.LLM_MODEL,
+                    contents=prompt,
+                    config=genai_types.GenerateContentConfig(
+                        temperature=0,
+                        max_output_tokens=300,
+                    ),
+                )
+                raw = response.text.strip()
+                lines = [l.strip() for l in raw.splitlines() if l.strip()]
+
+                for j, line in enumerate(lines):
+                    # Strip leading "1. " / "1) " numbering if present
+                    clean = re.sub(r"^\d+[\.\)]\s*", "", line).strip()
+                    global_idx = batch_start + j
+                    if global_idx < total and clean:
+                        results[global_idx] = clean
+
+            except Exception as e:
+                print(
+                    f"LLM normalization failed for batch {batch_start}-"
+                    f"{batch_start + len(batch)}: {e}. Using standard normalization."
+                )
+                # fallback already set above — continue to next batch
+
+        print(
+            f"LLM normalization complete: {total} tickets processed "
+            f"(batch_size={batch_size})"
+        )
+        return results
+
+    def normalize_tickets_locally(self, tickets: List[Dict]) -> List[str]:
+        """Use a local FLAN-T5 model to normalize tickets — no API key needed.
+
+        Downloads google/flan-t5-base (~300 MB) on first run and caches it
+        locally.  Subsequent runs are instant.  Runs on CPU so no GPU required.
+
+        Same goal as normalize_tickets_with_llm: rewrite each ticket into a
+        short canonical problem statement so that tickets describing the same
+        issue with different words produce similar embeddings and cluster
+        together.
+
+        Falls back to standard normalization per-ticket if the model cannot
+        be loaded (e.g. transformers not installed).
+        """
+        # Pre-fill with standard normalization as fallback
+        results = [
+            self.normalize_ticket_text(
+                str(t.get("title", "")),
+                str(t.get("description", "")),
+                str(t.get("severity", "")),
+            )
+            for t in tickets
+        ]
+
+        if not config.USE_LOCAL_NORMALIZATION:
+            return results
+
+        try:
+            from transformers import pipeline as hf_pipeline
+
+            print(
+                f"Loading local normalization model: {config.LOCAL_NORMALIZATION_MODEL} "
+                f"(downloads once then cached)"
+            )
+            summarizer = hf_pipeline(
+                "text2text-generation",
+                model=config.LOCAL_NORMALIZATION_MODEL,
+                device=-1,          # CPU — change to 0 for GPU
+                max_new_tokens=40,
+            )
+        except Exception as e:
+            print(
+                f"Local normalization model could not be loaded: {e}\n"
+                f"Tip: run  pip install transformers torch --break-system-packages\n"
+                f"Falling back to standard normalization."
+            )
+            return results
+
+        prompt_template = (
+            "Summarize this support ticket in one sentence of at most 12 words. "
+            "Focus only on what is broken and the symptom. "
+            "Remove names, dates, IDs, and workarounds.\n\n"
+            "Title: {title}\nDescription: {desc}"
+        )
+
+        for i, ticket in enumerate(tickets):
+            title = str(ticket.get("title", "")).strip()
+            desc = str(ticket.get("description", "")).strip()
+            if len(desc) > 300:
+                desc = desc[:300] + "..."
+
+            prompt = prompt_template.format(title=title, desc=desc)
+            try:
+                output = summarizer(prompt)[0]["generated_text"].strip()
+                if output:
+                    results[i] = output
+            except Exception as e:
+                print(f"Local normalization failed for ticket {ticket.get('id','?')}: {e}")
+                # fallback already set
+
+        print(f"Local normalization complete: {len(tickets)} tickets processed")
+        return results
+
     def cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
         """Compute cosine similarity between two vectors."""
         dot_product = np.dot(vec1, vec2)
@@ -299,12 +470,24 @@ class OperationalAIProcessor:
         self.tickets_df = pd.DataFrame(tickets)
         self.tickets_df["timestamp"] = pd.to_datetime(self.tickets_df["timestamp"])
 
-        normalized_texts = [
-            self.normalize_ticket_text(
-                str(row["title"]), str(row["description"]), str(row["severity"])
-            )
-            for _, row in self.tickets_df.iterrows()
-        ]
+        if config.USE_LLM_NORMALIZATION and config.GEMINI_API_KEY:
+            # Option 1: Gemini API — best quality, needs GEMINI_API_KEY in .env
+            normalized_texts = self.normalize_tickets_with_llm(tickets)
+        elif config.USE_LOCAL_NORMALIZATION:
+            # Option 2: Local FLAN-T5 — good quality, no API key needed.
+            # Downloads google/flan-t5-base (~300 MB) once then uses cache.
+            # Set USE_LOCAL_NORMALIZATION=true in .env to enable.
+            normalized_texts = self.normalize_tickets_locally(tickets)
+        else:
+            # Option 3: Standard regex normalization — always available, no deps.
+            # Works well with the paraphrase-mpnet-base-v2 embedding model which
+            # handles same-meaning different-wording naturally.
+            normalized_texts = [
+                self.normalize_ticket_text(
+                    str(row["title"]), str(row["description"]), str(row["severity"])
+                )
+                for _, row in self.tickets_df.iterrows()
+            ]
         self.embeddings = np.array(
             self.model.encode(normalized_texts, show_progress_bar=False)
         )

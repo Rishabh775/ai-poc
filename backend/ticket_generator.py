@@ -4,6 +4,8 @@ Generates realistic Jira-style tickets with specific test scenarios.
 
 from datetime import datetime, timedelta
 from typing import List, Dict
+import json
+import os
 
 
 class TicketGenerator:
@@ -716,5 +718,17 @@ class TicketGenerator:
         self.include_test_cases = include_test_cases
 
     def generate_tickets(self) -> List[Dict]:
-        """Return the test tickets as-is."""
+        """Load tickets from poc_tickets.json if available, otherwise use test tickets."""
+        try:
+            # Try to load from poc_tickets.json
+            json_path = os.path.join(os.path.dirname(__file__), "poc_tickets.json")
+            if os.path.exists(json_path):
+                with open(json_path, "r") as f:
+                    tickets = json.load(f)
+                    if tickets:
+                        return tickets
+        except Exception as e:
+            print(f"Warning: Could not load poc_tickets.json: {e}")
+        
+        # Fallback to test tickets
         return self.TEST_TICKETS
