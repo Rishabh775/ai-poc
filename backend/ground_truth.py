@@ -86,6 +86,16 @@ TICKET_CATEGORIES = {
     "POC-101": "File handling",
     "POC-102": "File handling",
     "POC-103": "File handling",
+    "POC-104": "Access control",
+    "POC-105": "Access control",
+    "POC-106": "Access control",
+    "POC-107": "Access control",
+    "POC-108": "Access control",
+    "POC-109": "Access control",
+    "POC-110": "Access control",
+    "POC-111": "Access control",
+    "POC-112": "Access control",
+    "POC-113": "Access control",
 }
 
 ALL_CATEGORIES = [

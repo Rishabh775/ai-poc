@@ -132,5 +132,75 @@
     "description": "Reviewer attempts to download the manuscript file but a pop-up error appears blocking the download action. The error message is vague and does not provide path to resolution. Download functionality fails. If reviewer dismisses the popup, they can view the NORE page but the manuscript download still fails. The download should complete without error popup interference.",
     "severity": "critical",
     "timestamp": "2025-10-14T13:00:00"
+  },
+  {
+    "id": "POC-104",
+    "title": "Reviewer sees \"We can't show this page\" when opening View and Review Manuscript link",
+    "description": "Reviewer tries to submit the review report, but when clicking the action link \"View and Review Manuscript\" the platform opens an error page stating \"We can't show this page\". The manuscript review page never loads, so the reviewer cannot complete the report submission.",
+    "severity": "critical",
+    "timestamp": "2025-10-15T09:00:00"
+  },
+  {
+    "id": "POC-105",
+    "title": "Mac Safari editor access fails with \"We can't show this page\" authentication error",
+    "description": "Editor using Mac Safari with Apple sign-in attempts to open the manuscript review workflow and receives message: \"We can't show this page\". The issue appears tied to an authentication failure and prevents the editor from accessing the requested page.",
+    "severity": "critical",
+    "timestamp": "2025-10-15T10:15:00"
+  },
+  {
+    "id": "POC-106",
+    "title": "Invitation link opens \"We can't show you this page\" access error",
+    "description": "User opening the invitation link is shown message: \"We can't show you this page. You might have entered an incorrect URL, or tried to access a page you don't have access to.\" The page also notes access is linked to the email address where the invitation was sent. User cannot proceed into the service.",
+    "severity": "high",
+    "timestamp": "2025-10-15T11:30:00"
+  },
+  {
+    "id": "POC-107",
+    "title": "Multiple reviewers report \"We can't show this page\" when navigating from EM to Quantum",
+    "description": "Support has received repeated reviewer complaints that EM review links into the Quantum platform fail with error \"We can't show this page\". The issue is becoming the most common technical problem reported. Reviewers are blocked before reaching the review screen.",
+    "severity": "critical",
+    "timestamp": "2025-10-15T13:00:00"
+  },
+  {
+    "id": "POC-108",
+    "title": "Editor proxy cannot open reviewer manuscript page and receives blank access error",
+    "description": "Editor attempts to proxy a reviewer and clicks \"View and review the manuscript\" but receives message \"We can't show you this page\". Refreshing does not resolve the problem. Proxy workflow cannot access the reviewer page.",
+    "severity": "critical",
+    "timestamp": "2025-10-15T14:20:00"
+  },
+  {
+    "id": "POC-109",
+    "title": "Submission inaccessible in editor and reviewer roles with \"We can't show you this page\"",
+    "description": "Users cannot access the submission in any role, including editor and reviewer. Every attempt returns error \"We can't show you this page\" instead of the manuscript details. The issue affects core access across roles and completely blocks the workflow.",
+    "severity": "critical",
+    "timestamp": "2025-10-15T15:10:00"
+  },
+  {
+    "id": "POC-110",
+    "title": "Author unable to open View and Reply to Reviews page despite correct invited email",
+    "description": "Author clicks the \"View and Reply to the Reviews\" link and is directed to a page displaying \"We can't show you this page\". The error text suggests access is tied to the email address that originally received the invitation. Author confirmed sign-in with the correct email but still cannot access the review response page.",
+    "severity": "critical",
+    "timestamp": "2025-10-16T09:30:00"
+  },
+  {
+    "id": "POC-111",
+    "title": "Reviewer and proxy both hit access error while direct review page loads blank",
+    "description": "Reviewer encounters the \"We can't show this page\" error while attempting to access the system. Support staff sees the same issue when proxying the reviewer. When directly opening \"view review and comments\", the page remains blank and keeps loading instead of rendering content.",
+    "severity": "critical",
+    "timestamp": "2025-10-16T10:45:00"
+  },
+  {
+    "id": "POC-112",
+    "title": "Author cannot view reviewer comments and peer review download opens blank page",
+    "description": "Author is unable to view reviewer comments after clicking \"View and reply to reviews\". In addition, downloading the peer review opens a blank page instead of the expected content. The issue prevents the author from reading feedback and preparing a response.",
+    "severity": "high",
+    "timestamp": "2025-10-16T12:00:00"
+  },
+  {
+    "id": "POC-113",
+    "title": "Agreed reviewer sees blank page from EM when opening Views Reviews and Comments",
+    "description": "An agreed reviewer cannot navigate from EM to the NPRE experience. After clicking the \"Views Reviews and Comments\" link, the reviewer only sees a blank page. The review content does not load and no actionable error details are presented.",
+    "severity": "high",
+    "timestamp": "2025-10-16T13:15:00"
   }
 ]
