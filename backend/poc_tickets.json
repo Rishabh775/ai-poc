@@ -202,5 +202,117 @@
     "description": "An agreed reviewer cannot navigate from EM to the NPRE experience. After clicking the \"Views Reviews and Comments\" link, the reviewer only sees a blank page. The review content does not load and no actionable error details are presented.",
     "severity": "high",
     "timestamp": "2025-10-16T13:15:00"
+  },
+  {
+    "id": "POC-114",
+    "title": "Reviewer submitted comments in NPRE but EM still shows Partial Review Saved",
+    "description": "A reviewer submitted review comments in NPRE, but EM still shows the review status as Partial Review Saved. There is no option to Send Review or mark the review as complete. The review workflow is blocked despite the comments already being submitted.",
+    "severity": "critical",
+    "timestamp": "2025-10-17T09:00:00"
+  },
+  {
+    "id": "POC-115",
+    "title": "Journal team requests Partial Review Saved status changed to Complete for two journals",
+    "description": "Per editor request, support needs the review status updated from Partial Review Saved to Complete for submissions in Journal-1 and Journal-2. The reviews are treated as incomplete in EM even though the editorial team expects them to be complete.",
+    "severity": "high",
+    "timestamp": "2025-10-17T09:40:00"
+  },
+  {
+    "id": "POC-116",
+    "title": "Reviewer comments submitted but reviewer status tab still shows Partial Review Saved",
+    "description": "The reviewer submitted all comments in EM, but the reviewer status tab still shows Partial Review Saved. The manuscript remains listed under Pending Assignments in the reviewer profile. Reviewer cannot complete the review and needs the state corrected.",
+    "severity": "critical",
+    "timestamp": "2025-10-17T10:15:00"
+  },
+  {
+    "id": "POC-117",
+    "title": "Review recommendation submitted in NPRE but review remains Partial Saved",
+    "description": "One review is showing as Partial Saved even though the reviewer submitted the review recommendation in the NPRE platform. The recommendation appears to have been sent, but the review status did not move to complete. Editorial staff asked for investigation and resolution.",
+    "severity": "high",
+    "timestamp": "2025-10-17T11:00:00"
+  },
+  {
+    "id": "POC-118",
+    "title": "Completed review remains in Partial Review Saved instead of Completed Review",
+    "description": "A completed reviewer submission still shows the status Partial Review Saved. The journal team requested the status to be updated to Completed Review from the backend because the front-end workflow no longer allows the reviewer to change it.",
+    "severity": "high",
+    "timestamp": "2025-10-17T11:45:00"
+  },
+  {
+    "id": "POC-119",
+    "title": "Reviewer cannot update review after status remains Partial Review Saved",
+    "description": "The reviewer submitted comments, but the status still shows Partial Review Saved and the reviewer no longer has the option to edit or update the review. The status should be Review Complete. Support requested backend correction.",
+    "severity": "critical",
+    "timestamp": "2025-10-17T12:30:00"
+  },
+  {
+    "id": "POC-120",
+    "title": "Two NPRE reviewers submitted comments but status remains Partial Review Saved",
+    "description": "Two reviewers submitted their review comments through NPRE, but both reviews still show Partial Review Saved. The journal team requested investigation because the reviews should have advanced to a completed state after submission.",
+    "severity": "critical",
+    "timestamp": "2025-10-17T13:15:00"
+  },
+  {
+    "id": "POC-121",
+    "title": "Reviewer profile still shows Pending Assignments after all comments were submitted",
+    "description": "All reviewer comments were submitted in EM, but the reviewer status tab still shows Partial Review Saved and the reviewer profile still lists the manuscript under Pending Assignments. The review state appears stuck and prevents normal completion.",
+    "severity": "critical",
+    "timestamp": "2025-10-17T14:00:00"
+  },
+  {
+    "id": "POC-122",
+    "title": "Partial Review Saved blocks reopening submit review comments for Minor Revision recommendation",
+    "description": "EM shows Review Status as Partial Review Saved while the recommendation is Minor Revision. Support requested that the partial review state be changed and the submit review comments option reopened for the reviewer so the review can be completed correctly.",
+    "severity": "high",
+    "timestamp": "2025-10-17T14:45:00"
+  },
+  {
+    "id": "POC-123",
+    "title": "Reviewer cannot complete peer review because EM and NPRE review states disagree",
+    "description": "The reviewer is unable to complete the peer review. In EM, the submission appears under Pending Review Assignments, but in NPRE the system says changes can no longer be made because the review was sent to the editor. The inconsistent state blocks the reviewer from finishing the workflow.",
+    "severity": "critical",
+    "timestamp": "2025-10-17T15:30:00"
+  },
+  {
+    "id": "POC-124",
+    "title": "Partially saved reviewer recommendation remains stuck after review submission",
+    "description": "Support requested help with a partially saved reviewer recommendation. In another case from the same journal, the reviewer submitted the review with a Reject recommendation and no comments, but EM still shows the review as Partial Review Saved instead of completed.",
+    "severity": "high",
+    "timestamp": "2025-10-18T09:00:00"
+  },
+  {
+    "id": "POC-125",
+    "title": "Reviewer unable to add comments in Quantum while EM shows Partial Review Saved recommendation",
+    "description": "EM shows Under Review and places the submission in the Pending Assignments folder for the reviewer. In Quantum, the reviewer cannot add comments. The recommendation should be Minor Revision, but EM still shows Partial Review Saved and needs correction.",
+    "severity": "critical",
+    "timestamp": "2025-10-18T09:40:00"
+  },
+  {
+    "id": "POC-126",
+    "title": "Peer review locked in NPRE while EM still lists submission under Pending Review Assignments",
+    "description": "The reviewer cannot complete the peer review because EM still lists the submission under Pending Review Assignments, while NPRE displays a message that changes can no longer be made because the review was already sent to the editor. The workflow is stuck across systems.",
+    "severity": "critical",
+    "timestamp": "2025-10-18T10:20:00"
+  },
+  {
+    "id": "POC-127",
+    "title": "Support cannot edit reviewer comments after Safari pop-up issue leaves review partially saved",
+    "description": "The journal team asked support to update reviewer comments from the backend after the user hit a Safari pop-up blocker while editing comments. In NPRE there is no Edit option available, and the review status now shows Partially Saved. The missing edit path prevents completing the review on the reviewer's behalf.",
+    "severity": "high",
+    "timestamp": "2025-10-18T11:10:00"
+  },
+  {
+    "id": "POC-128",
+    "title": "Accept recommendation remains Partial Review Saved and submission stays in Pending Assignments",
+    "description": "EM shows Under Review with Review Status set to Partial Review Saved, while the recommendation in Quantum is Accept. The journal team requested the status to be changed to Review Complete and the submission moved from Pending Assignments to Completed Reviews.",
+    "severity": "critical",
+    "timestamp": "2025-10-18T12:00:00"
+  },
+  {
+    "id": "POC-129",
+    "title": "Reviewer comments cannot be fully saved and review remains partially saved",
+    "description": "A reviewer completed the review, but some comments were not saved in full. Attempts to edit and add the missing portions were not captured after saving. Support suspects the existing truncation bug and requested a fix because the review remains effectively partially saved.",
+    "severity": "critical",
+    "timestamp": "2025-10-18T13:00:00"
   }
 ]

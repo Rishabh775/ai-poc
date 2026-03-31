@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.65"))
-DBSCAN_EPS: float = float(os.getenv("DBSCAN_EPS", "0.50"))
+SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.70"))
+DBSCAN_EPS: float = float(os.getenv("DBSCAN_EPS", "0.35"))
 MIN_SAMPLES: int = int(os.getenv("MIN_SAMPLES", "2"))  
 USE_HDBSCAN: bool = os.getenv("USE_HDBSCAN", "false").lower() == "true"
 HDBSCAN_MIN_CLUSTER_SIZE: int = int(os.getenv("HDBSCAN_MIN_CLUSTER_SIZE", "2"))
@@ -22,9 +22,10 @@ HDBSCAN_CLUSTER_SELECTION_EPSILON: float = float(
 # vectors even without any LLM rewriting step. This is a free upgrade over
 # all-mpnet-base-v2 for the "same problem, different description" use case.
 EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "paraphrase-mpnet-base-v2")
-HYBRID_WEIGHT_TEXT: float = float(os.getenv("HYBRID_WEIGHT_TEXT", "0.90"))
+HYBRID_WEIGHT_TEXT: float = float(os.getenv("HYBRID_WEIGHT_TEXT", "0.85"))
 HYBRID_WEIGHT_CATEGORY: float = float(os.getenv("HYBRID_WEIGHT_CATEGORY", "0.05"))
 HYBRID_WEIGHT_SEVERITY: float = float(os.getenv("HYBRID_WEIGHT_SEVERITY", "0.05"))
+HYBRID_WEIGHT_SYMPTOM: float = float(os.getenv("HYBRID_WEIGHT_SYMPTOM", "0.05"))
 
 USE_PCA: bool = os.getenv("USE_PCA", "true").lower() == "true"
 PCA_COMPONENTS: int = int(os.getenv("PCA_COMPONENTS", "12"))  # Tighter clustering
@@ -39,6 +40,7 @@ SEVERITY_WEIGHTS: Dict[str, float] = {
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-2.0-flash")
 CLASSIFIER_ENABLED: bool = os.getenv("CLASSIFIER_ENABLED", "false").lower() == "true"
+CATEGORY_MODE: str = os.getenv("CATEGORY_MODE", "dynamic").lower()
 
 # ── Normalization mode ────────────────────────────────────────────────────
 # Three mutually exclusive modes (checked in order of priority):
@@ -90,6 +92,7 @@ def get_config() -> Dict:
             "text": HYBRID_WEIGHT_TEXT,
             "category": HYBRID_WEIGHT_CATEGORY,
             "severity": HYBRID_WEIGHT_SEVERITY,
+            "symptom": HYBRID_WEIGHT_SYMPTOM,
         },
         "use_pca": USE_PCA,
         "pca_components": PCA_COMPONENTS,
@@ -98,6 +101,7 @@ def get_config() -> Dict:
             "enabled": CLASSIFIER_ENABLED,
             "model": LLM_MODEL,
             "categories": CATEGORY_LIST,
+            "mode": CATEGORY_MODE,
         },
         "llm_normalization": {
             "enabled": USE_LLM_NORMALIZATION,

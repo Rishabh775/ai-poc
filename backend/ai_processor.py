@@ -32,7 +32,9 @@ except ImportError:
 
 import config
 import category_classifier
+import dynamic_category
 import ground_truth
+import symptom_classifier
 
 
 STOP_WORDS = {
@@ -195,6 +197,7 @@ class OperationalAIProcessor:
         self.cluster_centroids: Dict[int, np.ndarray] = {}
         self.cluster_info: Dict[int, Dict] = {}
         self.category_encoder: Optional[OneHotEncoder] = None
+        self.symptom_encoder: Optional[OneHotEncoder] = None
         self.severity_encoder: Optional[StandardScaler] = None
         self.scaler: Optional[StandardScaler] = None
         self.pca: Optional[PCA] = None
@@ -462,10 +465,14 @@ class OperationalAIProcessor:
                 "config": config.get_config(),
             }
 
+        if "symptom" not in tickets[0]:
+            tickets = symptom_classifier.enrich_tickets_with_symptoms(tickets)
         if "category" not in tickets[0]:
             tickets = category_classifier.enrich_tickets_with_categories(
                 tickets, model=self.model
             )
+        if config.CATEGORY_MODE == "dynamic":
+            tickets = dynamic_category.enrich_tickets_with_dynamic_categories(tickets)
 
         self.tickets_df = pd.DataFrame(tickets)
         self.tickets_df["timestamp"] = pd.to_datetime(self.tickets_df["timestamp"])
@@ -530,6 +537,7 @@ class OperationalAIProcessor:
         text_weight = config.HYBRID_WEIGHT_TEXT
         category_weight = config.HYBRID_WEIGHT_CATEGORY
         severity_weight = config.HYBRID_WEIGHT_SEVERITY
+        symptom_weight = config.HYBRID_WEIGHT_SYMPTOM
 
         embeddings_to_use = self.embeddings.copy()
 
@@ -597,6 +605,18 @@ class OperationalAIProcessor:
             )
             metadata_features = np.hstack([metadata_features, severity_scaled])
 
+        has_symptom = "symptom" in self.tickets_df.columns
+        if has_symptom and symptom_weight > 0:
+            symptoms = self.tickets_df["symptom"].fillna("General failure").values.reshape(
+                -1, 1
+            )
+            self.symptom_encoder = OneHotEncoder(
+                sparse_output=False, handle_unknown="ignore"
+            )
+            symptom_encoded = self.symptom_encoder.fit_transform(symptoms)
+            symptom_scaled = symptom_encoded * symptom_weight
+            metadata_features = np.hstack([metadata_features, symptom_scaled])
+
         if metadata_features.shape[1] > 0:
             self.hybrid_features = np.hstack([text_features, metadata_features])
         else:
@@ -663,9 +683,13 @@ class OperationalAIProcessor:
             for t in example_tickets:
                 t["timestamp"] = t["timestamp"].isoformat()
 
-            all_tickets = cluster_tickets[
-                ["id", "title", "severity", "timestamp"]
-            ].to_dict("records")
+            ticket_fields = ["id", "title", "severity", "timestamp"]
+            if "category" in cluster_tickets.columns:
+                ticket_fields.append("category")
+            if "symptom" in cluster_tickets.columns:
+                ticket_fields.append("symptom")
+
+            all_tickets = cluster_tickets[ticket_fields].to_dict("records")
             for t in all_tickets:
                 t["timestamp"] = t["timestamp"].isoformat()
 
@@ -678,6 +702,16 @@ class OperationalAIProcessor:
             if "category" in cluster_tickets.columns:
                 category_dist = cluster_tickets["category"].value_counts().to_dict()
 
+            taxonomy_dist = {}
+            if "taxonomy_category" in cluster_tickets.columns:
+                taxonomy_dist = (
+                    cluster_tickets["taxonomy_category"].value_counts().to_dict()
+                )
+
+            symptom_dist = {}
+            if "symptom" in cluster_tickets.columns:
+                symptom_dist = cluster_tickets["symptom"].value_counts().to_dict()
+
             avg_silhouette = cluster_tickets["silhouette_score"].mean()
 
             clusters.append(
@@ -687,6 +721,8 @@ class OperationalAIProcessor:
                     "impact_score": round(impact_score, 2),
                     "severity_distribution": severity_counts,
                     "category_distribution": category_dist,
+                    "taxonomy_category_distribution": taxonomy_dist,
+                    "symptom_distribution": symptom_dist,
                     "example_tickets": example_tickets,
                     "all_tickets": all_tickets,
                     "summary": summary,
@@ -1036,6 +1072,14 @@ class OperationalAIProcessor:
         if "category" in cluster_tickets.columns:
             dominant_category = cluster_tickets["category"].mode()[0]
             summary += f"Category: {dominant_category}. "
+
+        if "taxonomy_category" in cluster_tickets.columns:
+            dominant_taxonomy_category = cluster_tickets["taxonomy_category"].mode()[0]
+            summary += f"Broad area: {dominant_taxonomy_category}. "
+
+        if "symptom" in cluster_tickets.columns:
+            dominant_symptom = cluster_tickets["symptom"].mode()[0]
+            summary += f"Primary symptom: {dominant_symptom}. "
 
         if time_span < 7:
             summary += "Recent spike — requires immediate attention."

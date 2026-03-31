@@ -96,6 +96,22 @@ TICKET_CATEGORIES = {
     "POC-111": "Access control",
     "POC-112": "Access control",
     "POC-113": "Access control",
+    "POC-114": "Status tracking",
+    "POC-115": "Status tracking",
+    "POC-116": "Status tracking",
+    "POC-117": "Status tracking",
+    "POC-118": "Status tracking",
+    "POC-119": "Status tracking",
+    "POC-120": "Status tracking",
+    "POC-121": "Status tracking",
+    "POC-122": "Status tracking",
+    "POC-123": "Status tracking",
+    "POC-124": "Status tracking",
+    "POC-125": "Status tracking",
+    "POC-126": "Status tracking",
+    "POC-127": "Status tracking",
+    "POC-128": "Status tracking",
+    "POC-129": "Status tracking",
 }
 
 ALL_CATEGORIES = [

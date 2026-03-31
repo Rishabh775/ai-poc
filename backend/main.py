@@ -81,6 +81,7 @@ class CreateTicketRequest(BaseModel):
     description: str
     severity: str
     category: Optional[str] = None
+    symptom: Optional[str] = None
 
 
 ticket_generator = TicketGenerator()
@@ -389,6 +390,7 @@ async def create_ticket(request: CreateTicketRequest):
         "description": request.description,
         "severity": request.severity,
         "category": request.category or "manual",
+        "symptom": request.symptom,
         "timestamp": datetime.now().isoformat(),
     }
 

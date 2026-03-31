@@ -214,6 +214,7 @@ class TestConfigValues(unittest.TestCase):
             config.HYBRID_WEIGHT_TEXT
             + config.HYBRID_WEIGHT_CATEGORY
             + config.HYBRID_WEIGHT_SEVERITY
+            + config.HYBRID_WEIGHT_SYMPTOM
         )
         self.assertAlmostEqual(
             total, 1.0, places=2, msg=f"Hybrid weights should sum to ~1.0 (got {total})"
