@@ -14,7 +14,7 @@ No fluff — just architecture understanding.
 Your processor is built on:
 
 ✅ Sentence Transformers (AI embeddings)
-SentenceTransformer('all-MiniLM-L6-v2')
+SentenceTransformer('paraphrase-mpnet-base-v2')
 
 This is:
 

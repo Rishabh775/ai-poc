@@ -225,8 +225,8 @@ No one knows someone else is already solving it
 │  │          • Strip whitespace                              │   │
 │  │                                                          │   │
 │  │  Step 2: EMBEDDING GENERATION                            │   │
-│  │          • sentence-transformers (all-MiniLM-L6-v2)      │   │
-│  │          • 384-dimensional vectors                        │   │
+│  │          • sentence-transformers (paraphrase-mpnet-base-v2)│   │
+│  │          • 768-dimensional vectors                        │   │
 │  │                                                          │   │
 │  │  Step 3: HYBRID CLUSTERING                               │   │
 │  │          • DBSCAN algorithm (density-based)              │   │
