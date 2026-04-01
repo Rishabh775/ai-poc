@@ -110,7 +110,9 @@ function ClusterCard({
                 </span>
               </div>
               <h4 className="mt-2 font-semibold text-zinc-900">
-                Cluster #{cluster.cluster_id}
+                {cluster.top_keywords?.slice(0, 3).join(', ') 
+                  ? <span><strong>{cluster.top_keywords.slice(0, 3).join(', ')}</strong></span>
+                  : cluster.summary.slice(0, 50) || `Cluster #${cluster.cluster_id}`}
               </h4>
               <p className="mt-1 text-sm leading-relaxed text-zinc-600">
                 {cluster.summary}

@@ -356,7 +356,7 @@ function App() {
 
       {selectedCluster && (
         <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setSelectedCluster(null)}>
-          <div className="absolute inset-0 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0 overflow-y-auto">
             <ClusterDetailPanel
               cluster={selectedCluster}
               allClusters={insights?.clusters || []}

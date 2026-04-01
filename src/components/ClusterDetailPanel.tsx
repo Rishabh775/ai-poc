@@ -45,7 +45,7 @@ export function ClusterDetailPanel({
   };
 
   return (
-    <div className="absolute right-0 top-0 min-h-screen w-full max-w-lg flex-col border-l border-zinc-200 bg-white shadow-xl">
+    <div className="absolute right-0 top-0 min-h-screen w-full max-w-lg flex-col border-l border-zinc-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 shrink-0">
         <div className="flex items-center gap-3">
           {isEditingName ? (
@@ -71,7 +71,10 @@ export function ClusterDetailPanel({
           ) : (
             <>
               <h2 className="text-lg font-semibold text-zinc-900">
-                {cluster.custom_name || `Cluster #${cluster.cluster_id}`}
+                {cluster.custom_name || 
+                  (cluster.top_keywords?.slice(0, 3).join(', ') 
+                    ? <strong>{cluster.top_keywords.slice(0, 3).join(', ')}</strong>
+                    : cluster.summary.slice(0, 50) || `Cluster #${cluster.cluster_id}`)}
               </h2>
               <button
                 onClick={() => {
