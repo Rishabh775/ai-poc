@@ -1,0 +1,71 @@
+
+sequenceDiagram
+    autonumber
+
+    actor User
+    participant FE as React Frontend
+    participant API as API Service
+    participant BE as FastAPI Backend
+    participant TG as Ticket Generator
+    participant AIP as AI Processor
+    participant CLS as Classifiers
+    participant EMB as Embedding Layer
+    participant CLU as Clustering Layer
+    participant CACHE as In Memory Cache
+
+    Note over BE,CACHE: Startup Flow
+    BE->>TG: Load tickets
+    TG-->>BE: Ticket list
+    BE->>AIP: Process tickets
+
+    AIP->>CLS: Add symptom labels
+    CLS-->>AIP: Symptoms
+    AIP->>CLS: Add taxonomy categories
+    CLS-->>AIP: Categories
+    AIP->>CLS: Add dynamic categories
+    CLS-->>AIP: Dynamic categories
+
+    AIP->>EMB: Normalize text
+    EMB-->>AIP: Normalized text
+    AIP->>EMB: Generate embeddings
+    EMB-->>AIP: Semantic vectors
+    AIP->>CLU: Cluster tickets
+    CLU-->>AIP: Cluster labels
+
+    AIP->>AIP: Compute confidence
+    AIP->>AIP: Compute summaries
+    AIP->>AIP: Compute trends and metrics
+    AIP-->>BE: Insights payload
+    BE->>CACHE: Save insights
+
+    Note over User,CACHE: Read Flow
+    User->>FE: Open dashboard
+    FE->>API: Get insights
+    API->>BE: GET insights
+    BE->>CACHE: Read cached insights
+    CACHE-->>BE: Insights
+    BE-->>API: Response
+    API-->>FE: Insights data
+    FE-->>User: Render dashboard
+
+    Note over User,CACHE: Duplicate Check
+    User->>FE: Enter issue text
+    FE->>API: Check duplicate
+    API->>BE: POST duplicate check
+    BE->>AIP: Run similarity check
+    AIP-->>BE: Match result
+    BE-->>API: Duplicate response
+    API-->>FE: Confidence and similar tickets
+    FE-->>User: Show duplicate result
+
+    Note over User,CACHE: Mutation Flow
+    User->>FE: Create or update ticket
+    FE->>API: Send mutation
+    API->>BE: POST request
+    BE->>AIP: Reprocess tickets
+    AIP-->>BE: Updated insights
+    BE->>CACHE: Refresh cache
+    BE-->>API: Success response
+    API-->>FE: Updated state
+    FE-->>User: Refreshed dashboard
+
