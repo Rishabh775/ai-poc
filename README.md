@@ -9,7 +9,7 @@ AI-powered operational triage engine that analyzes simulated Jira tickets and co
 - **Backend:** Python FastAPI (`backend/`)
 - **Frontend:** React + Vite + Tailwind CSS (`src/`)
 - **Charts:** Recharts
-- **AI:** Sentence Transformers, DBSCAN, NumPy
+- **AI:** Sentence Transformers, HDBSCAN (with DBSCAN fallback), NumPy
 
 ## Quick Start
 
@@ -45,8 +45,11 @@ The system is configurable via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SIMILARITY_THRESHOLD` | 0.85 | Duplicate detection threshold (0.82-0.88) |
-| `DBSCAN_EPS` | 0.32 | DBSCAN epsilon for clustering |
+| `DBSCAN_EPS` | 0.32 | DBSCAN epsilon for clustering (DBSCAN fallback mode) |
 | `MIN_SAMPLES` | 2 | Minimum samples for DBSCAN |
+| `USE_HDBSCAN` | false | Set `true` to cluster with HDBSCAN instead (better for small datasets) |
+
+For the small-ticket regime, HDBSCAN gives tighter topic clusters than DBSCAN's flat epsilon threshold; DBSCAN remains the default fallback when the `hdbscan` package isn't installed.
 
 Example:
 ```bash
