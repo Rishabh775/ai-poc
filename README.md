@@ -24,7 +24,9 @@ This full-stack prototype demonstrates how AI can transform operational noise in
                          │  AI Engine   │
                          │  - Sentence  │
                          │    Transformers│
-                         │  - DBSCAN    │
+                         │  - HDBSCAN   │
+                         │    (dbscan   │
+                         │   fallback)  │
                          │  - Analytics │
                          └──────────────┘
 ```
@@ -34,7 +36,7 @@ This full-stack prototype demonstrates how AI can transform operational noise in
 ### Backend (Python + FastAPI)
 - Generates 100 realistic demo Jira-style tickets with recurring patterns
 - Uses Sentence Transformers for semantic text embeddings
-- Clusters similar issues using DBSCAN algorithm
+- Clusters similar issues using HDBSCAN (DBSCAN fallback)
 - Detects temporal trends and calculates impact scores
 - Provides REST API for insights and raw data
 
@@ -84,7 +86,7 @@ The system simulates realistic operational issues:
 ## AI Processing Pipeline
 
 1. **Text Embedding**: Converts ticket titles and descriptions into semantic vectors
-2. **Clustering**: Groups similar issues using DBSCAN (density-based clustering)
+2. **Clustering**: Groups similar issues using HDBSCAN (with DBSCAN fallback) for density-based clustering
 3. **Impact Scoring**: Calculates priority based on frequency, severity, and recurrence
 4. **Trend Detection**: Analyzes temporal patterns and week-over-week changes
 5. **Summary Generation**: Creates human-readable insights with context
